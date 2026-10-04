@@ -1,0 +1,12 @@
+.venv/
+bin/
+dist/
+build/cache/
+build/work/
+build/work-onefile/
+build/onefile/
+build/version_info.txt
+build/selftest-*.txt
+__pycache__/
+*.pyc
+radiostreamer/_keys.py

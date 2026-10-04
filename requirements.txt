@@ -1,0 +1,3 @@
+# Runtime dependencies (running from source)
+pyaudiowpatch>=0.2.12; sys_platform == "win32"   # system-audio capture
+yt-dlp                                          # optional: only if not using the bundled yt-dlp.exe
