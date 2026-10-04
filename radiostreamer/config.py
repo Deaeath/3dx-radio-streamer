@@ -100,7 +100,7 @@ PROVIDERS = {
     "Caster.fm": {
         "fields": {"server_type": "Icecast 2", "username": "source"},
         "hint": "Dashboard > Broadcast settings. Note: the free plan does not give a direct "
-                "stream URL, so a 3DXChat radio prop may not be able to play it.",
+                "stream URL, so some players, games and websites may not be able to play it.",
     },
     "Other Shoutcast v1": {"fields": {"server_type": "Shoutcast v1"},
                            "hint": "Source connects to port + 1 with the source password."},

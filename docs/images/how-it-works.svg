@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="230" viewBox="0 0 800 230" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>How it works: your computer plays music, the radio server shares it, listeners hear it anywhere</title>
+  <rect x="1" y="1" width="798" height="228" rx="18" fill="#fffaf0" stroke="#f0c36d" stroke-width="2"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#e8743b"/>
+    </marker>
+  </defs>
+
+  <!-- 1. your computer -->
+  <rect x="30" y="30" width="200" height="170" rx="16" fill="#e3f2fd" stroke="#64b5f6" stroke-width="2"/>
+  <rect x="85" y="55" width="90" height="60" rx="6" fill="#ffffff" stroke="#1e88e5" stroke-width="3"/>
+  <path d="M112 102 v-28 l26 -6 v28" fill="none" stroke="#1e88e5" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="108" cy="102" r="6" fill="#1e88e5"/><circle cx="134" cy="96" r="6" fill="#1e88e5"/>
+  <rect x="115" y="115" width="30" height="8" fill="#1e88e5"/><rect x="100" y="123" width="60" height="6" rx="3" fill="#1e88e5"/>
+  <text x="130" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#0d47a1">1. Your computer</text>
+  <text x="130" y="184" text-anchor="middle" font-size="15" fill="#1a237e">plays the music</text>
+
+  <line x1="238" y1="115" x2="292" y2="115" stroke="#e8743b" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- 2. radio server -->
+  <rect x="300" y="30" width="200" height="170" rx="16" fill="#fff3e0" stroke="#ffb74d" stroke-width="2"/>
+  <path d="M362 112 a22 22 0 0 1 8 -42 a30 30 0 0 1 56 6 a20 20 0 0 1 12 36 z" fill="#ffffff" stroke="#fb8c00" stroke-width="3"/>
+  <path d="M385 98 a14 14 0 0 1 30 0" fill="none" stroke="#fb8c00" stroke-width="3"/>
+  <circle cx="400" cy="100" r="4" fill="#fb8c00"/>
+  <text x="400" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#e65100">2. Radio server</text>
+  <text x="400" y="184" text-anchor="middle" font-size="15" fill="#bf360c">shares it on the internet</text>
+
+  <line x1="508" y1="115" x2="562" y2="115" stroke="#e8743b" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- 3. listeners -->
+  <rect x="570" y="30" width="200" height="170" rx="16" fill="#e8f5e9" stroke="#81c784" stroke-width="2"/>
+  <path d="M640 105 v-12 a30 30 0 0 1 60 0 v12" fill="none" stroke="#43a047" stroke-width="5"/>
+  <rect x="632" y="98" width="14" height="24" rx="5" fill="#43a047"/>
+  <rect x="694" y="98" width="14" height="24" rx="5" fill="#43a047"/>
+  <text x="670" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#1b5e20">3. Listeners</text>
+  <text x="670" y="184" text-anchor="middle" font-size="15" fill="#2e7d32">hear it anywhere!</text>
+</svg>

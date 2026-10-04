@@ -26,7 +26,7 @@ def mount_path(cfg):
 
 
 def listener_url(cfg):
-    """The URL listeners (and a 3DXChat radio prop) play."""
+    """The URL listeners play."""
     host = str(cfg.get("host", "")).strip() or "host"
     port = cfg.get("port", "")
     if cfg.get("server_type") == "Icecast 2":

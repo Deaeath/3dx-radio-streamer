@@ -105,7 +105,7 @@ class SetupWizard(tk.Toplevel):
     def page_welcome(self):
         self.header.config(text="Welcome")
         self.text(self.body, f"{APP_NAME} sends music to your internet radio server (Shoutcast or Icecast), "
-                             "so anyone with your station link - like a 3DXChat room radio - can listen.")
+                             "so anyone with your station link can listen - in a music app, a browser, or a game's radio.")
         self.text(self.body, "You can play:\n"
                              "  •  Music files and folders on this PC\n"
                              "  •  YouTube, SoundCloud, Bandcamp and other links\n"
@@ -323,7 +323,7 @@ class SetupWizard(tk.Toplevel):
         e.pack(side="left", fill="x", expand=True)
         ttk.Button(row, text="Copy", command=lambda: (self.clipboard_clear(), self.clipboard_append(url))
                    ).pack(side="left", padx=6)
-        self.text(self.body, "In 3DXChat, paste it into the radio in your room. Some hosts (e.g. "
+        self.text(self.body, "Share it with friends, or paste it into any radio player. Some hosts (e.g. "
                              "Listen2MyRadio) give you their own station link instead - use that if the direct "
                              "link doesn't play.", foreground="#555")
         self.text(self.body, "Press GO LIVE on the Broadcast tab whenever you're ready. You can re-run this "

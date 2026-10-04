@@ -1,99 +1,200 @@
-# 3DX Radio Streamer
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="3DX Radio Streamer logo">
+</p>
 
-[![Latest release](https://img.shields.io/github/v/release/Deaeath/3dx-radio-streamer)](https://github.com/Deaeath/3dx-radio-streamer/releases/latest) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+<h1 align="center">3DX Radio Streamer</h1>
 
-Run your own internet radio station from your PC. 3DX Radio Streamer sends music to a
-**Shoutcast** or **Icecast** server, so anyone with your station link can listen, including
-a radio in a 3DXChat room.
+<p align="center">
+  <b>Start your very own internet radio station!</b><br>
+  Pick your music, press one big button, and friends anywhere can listen. 🎶
+</p>
 
-## What you can play
+<p align="center">
+  <a href="https://github.com/Deaeath/3dx-radio-streamer/releases/latest"><img src="https://img.shields.io/github/v/release/Deaeath/3dx-radio-streamer?label=download&color=2e7d32" alt="Download"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4" alt="Windows 10 and 11">
+</p>
 
-| Source | How |
+<p align="center">
+  <img src="docs/images/main-live.png" width="720" alt="The app playing music live: a big red STOP button, a green sound meter and a list of songs">
+</p>
+
+---
+
+## 📻 How does it work?
+
+<p align="center">
+  <img src="docs/images/how-it-works.svg" width="720" alt="1. Your computer plays the music. 2. A radio server shares it on the internet. 3. Listeners hear it anywhere.">
+</p>
+
+Your computer plays the music. A **radio server** passes it along on the internet. Anyone
+with your **listen link** can tune in from a music app, a web browser, or a game's radio.
+
+## 🎵 What can I play?
+
+| | |
 |---|---|
-| Music files & folders | MP3, FLAC, WAV, OGG, Opus, M4A/AAC, WMA, AIFF, APE, video files (audio track) and more |
-| Playlists | `.m3u`, `.m3u8`, `.pls`, `.xspf` |
-| YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo, Twitch… | Paste a video, track, set or playlist link (powered by yt-dlp, 1000+ sites) |
-| Spotify | Paste a track, album or playlist link. Spotify audio is DRM-protected, so each track is matched and played from YouTube or SoundCloud |
-| Internet radio & direct links | `.mp3`/`.aac` URLs, Shoutcast/Icecast streams, HLS |
-| A song name | Type `Artist - Title` and it is found online |
-| **Live: system audio** | Everything the PC plays: the Spotify app, a browser tab, any player. No extra software (Windows) |
-| **Live: an input device** | VB-CABLE, a mixer or a microphone, for DJ software |
+| 📁 **Songs on your computer** | MP3, WAV, FLAC, and lots more. Even the sound from video files! |
+| ▶️ **YouTube & SoundCloud** | Paste a link to a song or a whole playlist |
+| 💚 **Spotify playlists** | Paste the link and each song is found online for you |
+| 📡 **Other radio stations** | Paste the station's link |
+| 🔎 **A song name** | Just type it, like `The Happy Hamsters - Sunny Day Song` |
+| 🎧 **Whatever your computer is playing** | Share the music from any app, live |
 
-The queue plays back to back without gaps and evens out loudness between tracks.
-Online tracks download just before they play.
+---
 
-### Also included
-- **Setup wizard** on first launch, with presets for Listen2MyRadio, Zeno.FM, FreeSHOUTcast,
-  Caster.fm and any Shoutcast v1/v2 or Icecast 2 / AzuraCast server. It can also copy your
-  settings from Mixxx.
-- **Stream titles**: sent automatically from track tags. For live sources, titles are detected from
-  the Spotify app, YouTube / SoundCloud / Spotify Web in your browser, VLC, foobar2000, Winamp,
-  MusicBee, AIMP, or a Last.fm user's now playing.
-- **Last.fm**: scrobbles everything the station plays.
-- **Reliability**: reconnects automatically, has a level meter, and warns you if listeners are
-  hearing silence.
-- **Room URL**: a one-click copy of the listener link to paste into your 3DX room radio.
+## 🚀 Let's get started!
 
-## Install
+> 👋 **Kids:** ask a grown-up to help with step 1 and step 2. They involve downloading
+> an app and signing up for a website.
 
-**Windows:** download from the [latest release](https://github.com/Deaeath/3dx-radio-streamer/releases/latest).
-FFmpeg and yt-dlp are included in every download.
+### Step 1: Download the app
 
-| Download | Best for |
+Go to the **[download page](https://github.com/Deaeath/3dx-radio-streamer/releases/latest)**
+and pick one:
+
+| Download | What it is |
 |---|---|
-| `3DX-Radio-Streamer-<version>-setup.exe` | **Most people.** Installs with Start menu and desktop shortcuts. No admin rights needed. |
-| `3DX-Radio-Streamer-<version>-win64-portable.zip` | Running from a USB stick or any folder: extract it and run `3DX Radio Streamer.exe`. |
-| `3DX-Radio-Streamer-<version>-win64-standalone.exe` | A single file you can run anywhere. It starts a few seconds slower because it unpacks itself each time. |
+| ⭐ `...-setup.exe` | **The easiest choice.** Installs the app like any other program |
+| `...-portable.zip` | Unzip it and run it from any folder, even a USB stick |
+| `...-standalone.exe` | One single file. Double-click it and go! |
 
-`SHA256SUMS.txt` lists checksums so you can verify the downloads.
+Everything the app needs is already inside, so there's nothing else to install.
 
-> Windows SmartScreen may warn about an unrecognized app because the build isn't code-signed.
-> Click **More info → Run anyway**.
+> 🛡️ Windows might say *"Windows protected your PC"*. That's because the app is brand new.
+> Click **More info**, then **Run anyway**.
 
-**From source (Windows / macOS / Linux):** Python 3.9+ with tkinter, and FFmpeg on PATH.
+### Step 2: Get a radio server
+
+Your station needs a home on the internet called a **radio server**. Some radio hosts give
+you one for free (for example Listen2MyRadio or FreeSHOUTcast). After you sign up, their
+website shows you three things you'll need:
+
+- 🏠 the **host** (the server's address)
+- 🔢 the **port** (a number)
+- 🔑 the **source password**
+
+Make sure the server is switched **ON** on their website.
+
+### Step 3: Follow the setup wizard
+
+The first time you open the app, a friendly helper called the **setup wizard** pops up.
+
+<p align="center">
+  <img src="docs/images/wizard-1-welcome.png" width="560" alt="Setup wizard welcome page">
+</p>
+
+Type in your host, port and password, then press **Test connection**. Green text means
+it worked! ✅
+
+<p align="center">
+  <img src="docs/images/wizard-2-server.png" width="560" alt="Setup wizard server page with a green Connection OK message">
+</p>
+
+Next, choose what you want to play:
+
+<p align="center">
+  <img src="docs/images/wizard-3-source.png" width="560" alt="Setup wizard asking what you want to play">
+</p>
+
+At the end you get your **listen link**. Press **Copy** and share it with your friends!
+
+<p align="center">
+  <img src="docs/images/wizard-4-done.png" width="560" alt="Setup wizard final page showing the listen link with a Copy button">
+</p>
+
+### Step 4: Add some music
+
+Press **Add files...** or **Add folder...** for songs on your computer. Or press
+**Add links / search...** and paste links or type song names, one per line:
+
+<p align="center">
+  <img src="docs/images/add-links.png" width="560" alt="Window for pasting YouTube, SoundCloud and Spotify links or typing song names">
+</p>
+
+### Step 5: Press GO LIVE! 🔴
+
+Press the big green **GO LIVE** button. It turns red and says **LIVE**. You're on the air! 🎉
+
+- 🟩 The **green bar** bounces when music is playing
+- ▶️ The song playing right now is highlighted in the list
+- 👆 **Double-click** a song to play it now, or press **Skip** for the next one
+- ⏹️ Press **STOP** when you're done
+
+---
+
+## 🤔 Uh oh, something's wrong!
+
+| What you see | What to do |
+|---|---|
+| *"refused the connection"* | The radio server is switched off. Turn it **ON** on your radio host's website. |
+| *"rejected the login"* | The password isn't right. Check it on your radio host's website. |
+| The green bar doesn't move | No music is playing. Add songs or press **GO LIVE** again. |
+| A YouTube song won't play | Click **Tools → Update yt-dlp**, then try again. |
+| *"confirm you're not a bot"* | YouTube is being careful. Ask a grown-up to see the tips below. |
+
+## 💛 Be a good DJ
+
+- 🎵 Only play music you're allowed to share. Ask a grown-up if you're not sure.
+- 🔑 Keep your source password secret, like any other password.
+- 😊 Be kind to your listeners!
+
+---
+
+<details>
+<summary><b>🧑‍🔧 For grown-ups: more details, settings and building</b></summary>
+
+### Features
+- A gapless queue of local files (any format FFmpeg reads, including video), `.m3u` / `.pls` /
+  `.xspf` playlists, yt-dlp links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo, Twitch, 1000+
+  sites), Spotify links (DRM-protected, so each track is matched on YouTube or SoundCloud),
+  internet radio, HLS and direct audio URLs. Loudness is evened out between tracks.
+- Live sources: Windows system audio (WASAPI loopback, no virtual cable needed) or any input
+  device (VB-CABLE, a mixer, a microphone).
+- Shoutcast v1, Shoutcast v2 (DNAS 2) and Icecast 2 / AzuraCast, MP3 at 64–320 kbps, automatic
+  reconnect.
+- Stream titles from tags, from music-app window titles (Spotify, browsers, VLC, foobar2000,
+  Winamp, MusicBee, AIMP), or from a Last.fm user's now playing. Last.fm scrobbling.
+- Provider presets (Listen2MyRadio, Zeno.FM, FreeSHOUTcast, Caster.fm, generic) and settings
+  import from Mixxx.
+
+### Tips
+- **YouTube "confirm you're not a bot"** usually happens on a VPN. Turn the VPN off, or on the
+  **Integrations** tab set *YouTube sign-in* to a browser that's signed in to YouTube (Firefox
+  works best), or switch song matching to SoundCloud.
+- **The stream drops right after connecting:** the bitrate is above the plan's limit. Free plans
+  are often 96 kbps; change it on the **Server** tab.
+- Shoutcast sources connect on **port + 1**.
+- Settings are stored in `%APPDATA%\3DXRadioStreamer\settings.json`. The source password is
+  stored there in plain text.
+- `"3DX Radio Streamer.exe" --selftest` checks the tools, devices and the whole broadcast
+  pipeline.
+
+<p align="center"><img src="docs/images/server-tab.png" width="600" alt="Server settings tab"></p>
+
+### Running from source (Windows / macOS / Linux)
+Python 3.9+ with tkinter, and FFmpeg on PATH:
 ```
 pip install -r requirements.txt
 python RadioStreamer.py
 ```
-On macOS and Linux, live capture uses an input device (on macOS, BlackHole works as a virtual
-cable; on Linux, choose a PulseAudio `.monitor` source). System-audio capture is Windows-only.
+On macOS and Linux, live capture uses an input device (BlackHole on macOS, a PulseAudio
+`.monitor` source on Linux). System-audio capture is Windows-only.
 
-## Quick start
-1. Get a stream server from a radio host. Free options include Listen2MyRadio and FreeSHOUTcast.
-   Turn the server **on** in the host's control panel.
-2. Start the app. The wizard asks for the host, port and source password, and tests the login.
-3. Choose what to play, then press **GO LIVE**.
-4. Copy the **Room URL** and paste it into your radio. Some hosts give you their own station
-   link to share instead.
-
-## Troubleshooting
-
-| Message | Fix |
-|---|---|
-| *refused the connection* | The stream server is off. Turn it on in your host's panel, or check the host and port. Shoutcast sources connect on **port + 1**. |
-| *Server rejected the login* | Wrong source password (Icecast: also check the username and mount). |
-| *server dropped the stream right after login* | The bitrate is above your plan's limit. Free plans are often 96 kbps. |
-| *YouTube … confirm you're not a bot* | Common on VPNs. Turn the VPN off, or on **Integrations** set *YouTube sign-in* to the browser you use YouTube in (Firefox works best), or match songs on SoundCloud. |
-| YouTube links suddenly fail | **Tools → Update yt-dlp**. |
-| Listeners hear silence | Check the level meter. For system audio, make sure music plays on the device being captured. |
-
-Settings are stored in `%APPDATA%\3DXRadioStreamer\settings.json`. The source password is
-stored there in plain text, as Mixxx does.
-
-## Building a release (Windows)
+### Building a release (Windows)
 ```
 powershell -ExecutionPolicy Bypass -File build\build.ps1
 ```
-This creates `.venv`, downloads an LGPL FFmpeg build and yt-dlp into `bin\`, runs PyInstaller and
-writes `dist\3DX Radio Streamer\` plus a portable zip. If [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-is installed, it also builds a `-setup.exe` installer. To ship a default Last.fm API key, set
-`LASTFM_API_KEY` and `LASTFM_API_SECRET` before building.
+This creates `.venv`, downloads an LGPL FFmpeg build and yt-dlp, and builds the one-folder app,
+portable zip, standalone exe and (if Inno Setup 6 is installed) the installer. Each build must
+pass `--selftest`. To embed a default Last.fm API key, set `LASTFM_API_KEY` and
+`LASTFM_API_SECRET` first. `docs\make_screenshots.py` regenerates these pictures with demo data.
 
-Tests: `python tests\test_engine.py <folder-with-music\ and-test.m3u>` runs the whole pipeline
-against a local mock server.
-
-## Legal
-Only broadcast audio you have the right to stream. Public internet radio usually needs
+### Legal
+Only broadcast audio you have the rights to stream. Public internet radio usually needs
 performance licences, and downloading from YouTube or other sites may break their terms of
-service. You are responsible for what you broadcast. See `THIRD-PARTY-NOTICES.md` for the
-bundled components.
+service. Bundled components and their licences are listed in `THIRD-PARTY-NOTICES.md`.
+
+</details>
+
+<p align="center">Made with 💛 · MIT License</p>

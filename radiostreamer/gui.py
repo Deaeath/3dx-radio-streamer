@@ -140,7 +140,7 @@ class App:
         self.meter.grid(row=0, column=1, sticky="ew")
         self.level_lbl = ttk.Label(meter, text="silent", width=11, anchor="e")
         self.level_lbl.grid(row=0, column=2, padx=(8, 0))
-        ttk.Label(meter, text="Room URL").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(meter, text="Listen link").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
         self.room_url = tk.StringVar()
         ttk.Entry(meter, textvariable=self.room_url, state="readonly").grid(row=1, column=1, sticky="ew",
                                                                            pady=(8, 0))
@@ -461,7 +461,7 @@ class App:
     def copy_room_url(self):
         self.root.clipboard_clear()
         self.root.clipboard_append(self.room_url.get())
-        self.log(f"Copied {self.room_url.get()} - paste it into the radio in your 3DX room.")
+        self.log(f"Copied {self.room_url.get()} - share it so people can listen.")
 
     def import_mixxx(self):
         imported, msg = import_mixxx_profile()
