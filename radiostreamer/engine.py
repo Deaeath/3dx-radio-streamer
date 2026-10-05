@@ -448,8 +448,11 @@ class Broadcaster:
         return cmd + ["-f", "s16le", "-ar", str(self.sr), "-ac", str(self.ch), "pipe:1"]
 
     def _live_source(self):
-        if self.cfg["source"] == "loopback":
-            cap = capture.LoopbackCapture(self.cfg.get("loopback_device", ""))
+        if self.cfg["source"] in ("loopback", "app"):
+            if self.cfg["source"] == "app":
+                cap = capture.AppCapture(self.cfg.get("app_name", ""))
+            else:
+                cap = capture.LoopbackCapture(self.cfg.get("loopback_device", ""))
             cmd = [self.ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-loglevel", "error",
                    "-probesize", "32", "-analyzeduration", "0", "-fflags", "nobuffer",
                    "-f", "s16le", "-ar", str(cap.rate), "-ac", str(cap.channels), "-i", "pipe:0",

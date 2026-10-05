@@ -40,13 +40,14 @@ with your **listen link** can tune in from a music app, a web browser, or a game
 | 📡 **Other radio stations** | Paste the station's link |
 | 🔎 **A song name** | Just type it, like `The Happy Hamsters - Sunny Day Song` |
 | 🎧 **Whatever your computer is playing** | Share the music from any app, live |
+| 🎯 **Just one app** | Share only Spotify or your browser, so game and chat sounds stay off air |
 
 ---
 
 ## 🚀 Let's get started!
 
-> 👋 **Kids:** ask a grown-up to help with step 1 and step 2. They involve downloading
-> an app and signing up for a website.
+> 👋 **New to this?** Steps 1 and 2 involve downloading an app and signing up for a
+> website. After that, everything happens inside the app.
 
 ### Step 1: Download the app
 
@@ -66,15 +67,20 @@ Everything the app needs is already inside, so there's nothing else to install.
 
 ### Step 2: Get a radio server
 
-Your station needs a home on the internet called a **radio server**. Some radio hosts give
-you one for free (for example Listen2MyRadio or FreeSHOUTcast). After you sign up, their
-website shows you three things you'll need:
+Your station needs a home on the internet called a **radio server**. We recommend
+**[Listen2MyRadio](https://newl2mr.listen2myradio.com/signup)**. It's free, and it's the
+app's default choice. After you sign up, open the
+**[control panel](https://newl2mr.listen2myradio.com/control-panel)** and look under
+**Stream Details** for three things you'll need:
 
-- 🏠 the **host** (the server's address)
-- 🔢 the **port** (a number)
-- 🔑 the **source password**
+- 🏠 the **Hostname** (the server's address)
+- 🔢 the **Port** (a number)
+- 🔑 the **Stream Password**
 
-Make sure the server is switched **ON** on their website.
+Make sure **Stream Status** says **ON**. If it doesn't, press **Turn ON**.
+
+Using a different host? Pick it in the setup wizard. Zeno.FM, FreeSHOUTcast, Caster.fm and
+any Shoutcast or Icecast server work too.
 
 ### Step 3: Follow the setup wizard
 
@@ -105,8 +111,8 @@ At the end you get your **listen link**. Press **Copy** and share it with your f
 
 ### Step 4: Add some music
 
-Press **Add files...** or **Add folder...** for songs on your computer. Or press
-**Add links / search...** and paste links or type song names, one per line:
+Press **+ Files** or **+ Folder** for songs on your computer. Or press the pink
+**+ Links / search** button and paste links or type song names, one per line:
 
 <p align="center">
   <img src="docs/images/add-links.png" width="560" alt="Window for pasting YouTube, SoundCloud and Spotify links or typing song names">
@@ -127,30 +133,33 @@ Press the big green **GO LIVE** button. It turns red and says **LIVE**. You're o
 
 | What you see | What to do |
 |---|---|
-| *"refused the connection"* | The radio server is switched off. Turn it **ON** on your radio host's website. |
+| *"refused the connection"* | The radio server is switched off. Press **Turn ON** in your radio host's control panel. |
+| *"... is not running"* | You picked **One app only**. Start that app first, then press **GO LIVE** again. |
 | *"rejected the login"* | The password isn't right. Check it on your radio host's website. |
 | The green bar doesn't move | No music is playing. Add songs or press **GO LIVE** again. |
 | A YouTube song won't play | Click **Tools → Update yt-dlp**, then try again. |
-| *"confirm you're not a bot"* | YouTube is being careful. Ask a grown-up to see the tips below. |
+| *"confirm you're not a bot"* | YouTube is being careful. See the tips in the advanced section below. |
 
 ## 💛 Be a good DJ
 
-- 🎵 Only play music you're allowed to share. Ask a grown-up if you're not sure.
+- 🎵 Only play music you're allowed to share. See **Legal** in the advanced section below.
 - 🔑 Keep your source password secret, like any other password.
 - 😊 Be kind to your listeners!
 
 ---
 
 <details>
-<summary><b>🧑‍🔧 For grown-ups: more details, settings and building</b></summary>
+<summary><b>🧑‍🔧 For advanced users: more details, settings and building</b></summary>
 
 ### Features
 - A gapless queue of local files (any format FFmpeg reads, including video), `.m3u` / `.pls` /
   `.xspf` playlists, yt-dlp links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo, Twitch, 1000+
   sites), Spotify links (DRM-protected, so each track is matched on YouTube or SoundCloud),
   internet radio, HLS and direct audio URLs. Loudness is evened out between tracks.
-- Live sources: Windows system audio (WASAPI loopback, no virtual cable needed) or any input
-  device (VB-CABLE, a mixer, a microphone).
+- Live sources: Windows system audio (WASAPI loopback, no virtual cable needed), one app and its
+  child processes only (WASAPI process loopback, Windows 10 2004+, no driver needed), or any input
+  device (VB-CABLE, a mixer, a microphone). If the chosen app quits mid-broadcast, the stream
+  carries silence and picks the app up again when it restarts.
 - Shoutcast v1, Shoutcast v2 (DNAS 2) and Icecast 2 / AzuraCast, MP3 at 64–320 kbps, automatic
   reconnect.
 - Stream titles from tags, from music-app window titles (Spotify, browsers, VLC, foobar2000,

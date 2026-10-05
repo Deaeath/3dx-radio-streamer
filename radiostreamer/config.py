@@ -30,7 +30,7 @@ BITRATES = [64, 96, 128, 160, 192, 256, 320]
 SAMPLERATES = [44100, 48000]
 
 SOURCES = {"queue": "Playlist / queue", "loopback": "System audio (what this PC plays)",
-           "device": "Audio input device"}
+           "app": "One app only", "device": "Audio input device"}
 TITLE_SOURCES = ["Manual", "Music app (auto-detect)", "Spotify app", "Browser (YouTube / SoundCloud)",
                  "Last.fm user's now playing"]
 
@@ -59,6 +59,7 @@ DEFAULTS = {
     "source": "queue",
     "device": "",
     "loopback_device": "",
+    "app_name": "",
     "queue": [],
     "loop": True,
     # titles
@@ -84,8 +85,11 @@ DEFAULTS = {
 PROVIDERS = {
     "Listen2MyRadio": {
         "fields": {"server_type": "Shoutcast v1"},
-        "hint": "Control panel: copy Hostname (or IP Address), Port and Stream Password. "
-                "Press 'Turn ON' in the panel first - the server refuses connections while OFF.",
+        "hint": "Recommended - free. In the control panel under Stream Details, copy Hostname, Port and "
+                "Stream Password. Stream Status must be ON: press 'Turn ON' first - the server refuses "
+                "connections while it's OFF.",
+        "links": {"Sign up free": "https://newl2mr.listen2myradio.com/signup",
+                  "Open control panel": "https://newl2mr.listen2myradio.com/control-panel"},
     },
     "Zeno.FM": {
         "fields": {"server_type": "Icecast 2", "username": "source"},

@@ -69,6 +69,11 @@ def run(report_path=None):
     if capture.available():
         loops = capture.list_loopback_devices()
         check("system audio capture available", loops, f"{len(loops)} output device(s)")
+    if capture.app_capture_available():
+        apps = capture.list_apps()
+        lines.append(f"[INFO] one-app capture: {len(apps)} app(s) running: {', '.join(apps) or 'none'}")
+    else:
+        lines.append("[INFO] one-app capture: needs Windows 10 version 2004 or newer")
     lines.append(f"[INFO] settings: {config.SETTINGS_FILE}")
 
     if ff:

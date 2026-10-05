@@ -1,5 +1,6 @@
 """Main window."""
 
+import math
 import os
 import queue
 import subprocess
@@ -9,9 +10,8 @@ import time
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
-from tkinter.scrolledtext import ScrolledText
 
-from . import APP_NAME, VERSION, capture, media, tools
+from . import APP_NAME, VERSION, capture, media, theme, tools
 from .config import (BITRATES, CACHE_DIR, DATA_DIR, DEFAULTS, PROVIDERS, SAMPLERATES, SERVER_TYPES,
                      SETTINGS_FILE, SOURCES, TITLE_SOURCES, import_mixxx_profile, load_settings,
                      mixxx_profile_exists, save_settings)
@@ -55,18 +55,28 @@ class App:
                 self.vars[key] = tk.StringVar(value=str(cfg[key]))
 
         root.title(f"{APP_NAME} {VERSION}")
-        root.geometry("900x760")
-        root.minsize(760, 640)
+        root.geometry("940x880")
+        root.minsize(820, 760)
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        theme.dark_titlebar(root)
 
-        self._build_menu()
+        self.logo = None
+        icon = icon_path()
+        if icon:
+            try:
+                self.logo = tk.PhotoImage(file=str(icon)).subsample(6)
+            except tk.TclError:
+                pass
+        self.banner = theme.Banner(root, APP_NAME, f"Your own internet radio station  ·  v{VERSION}",
+                                   self.logo, self._build_menu())
+        self.banner.pack(fill="x")
         self.nb = ttk.Notebook(root)
-        self.nb.pack(fill="both", expand=True, padx=8, pady=(8, 0))
+        self.nb.pack(fill="both", expand=True, padx=0, pady=(0, 0))
         self._build_broadcast_tab()
         self._build_server_tab()
         self._build_integrations_tab()
         self._build_log_tab()
-        self.statusbar = ttk.Label(root, anchor="w", padding=(10, 3))
+        self.statusbar = ttk.Label(root, anchor="w", style="Status.TLabel")
         self.statusbar.pack(fill="x")
 
         for key in ("server_type", "host", "port", "mount", "sid"):
@@ -88,26 +98,25 @@ class App:
     # Layout
     # ------------------------------------------------------------------ #
     def _build_menu(self):
-        m = tk.Menu(self.root)
-        f = tk.Menu(m, tearoff=False)
+        """The File / Tools / Help menus, shown as links in the header banner."""
+        f = tk.Menu(self.root, tearoff=False)
         f.add_command(label="Setup wizard...", command=self.open_wizard)
         f.add_command(label="Open settings folder", command=lambda: self.open_path(DATA_DIR))
         f.add_separator()
         f.add_command(label="Exit", command=self.on_close)
-        m.add_cascade(label="File", menu=f)
-        t = tk.Menu(m, tearoff=False)
+        t = tk.Menu(self.root, tearoff=False)
         t.add_command(label="Test server connection", command=self.test_connection)
         t.add_command(label="Import settings from Mixxx", command=self.import_mixxx)
         t.add_command(label="Update yt-dlp (fixes YouTube errors)", command=self.update_ytdlp)
         t.add_command(label="Clear download cache", command=self.clear_cache)
-        m.add_cascade(label="Tools", menu=t)
-        h = tk.Menu(m, tearoff=False)
+        h = tk.Menu(self.root, tearoff=False)
         h.add_command(label="Get VB-CABLE (virtual audio cable)", command=lambda: webbrowser.open(VB_CABLE_URL))
         h.add_command(label="Create a Last.fm API key", command=lambda: webbrowser.open(CREATE_KEY_URL))
         h.add_separator()
         h.add_command(label="About", command=self.about)
-        m.add_cascade(label="Help", menu=h)
-        self.root.config(menu=m)
+        for menu in (f, t, h):
+            theme.style_menu(menu)
+        return [("File", f), ("Tools", t), ("Help", h)]
 
     def _row(self, parent, r, label, widget, sticky="ew"):
         ttk.Label(parent, text=label).grid(row=r, column=0, sticky="w", padx=(0, 8), pady=3)
@@ -116,39 +125,41 @@ class App:
 
     def _build_broadcast_tab(self):
         v = self.vars
-        tab = ttk.Frame(self.nb, padding=10)
-        self.nb.add(tab, text="Broadcast")
+        tab = ttk.Frame(self.nb, padding=(16, 14))
+        self.nb.add(tab, text="  Broadcast  ")
         tab.columnconfigure(0, weight=1)
 
         top = ttk.Frame(tab)
         top.grid(row=0, column=0, sticky="ew")
         top.columnconfigure(1, weight=1)
-        self.go_btn = tk.Button(top, text="GO LIVE", width=12, font=("Segoe UI", 13, "bold"), bg="#2e7d32",
-                                fg="white", activebackground="#1b5e20", activeforeground="white",
-                                relief="flat", cursor="hand2", command=self.toggle)
-        self.go_btn.grid(row=0, column=0, rowspan=2, padx=(0, 14), ipady=6)
-        self.status_lbl = tk.Label(top, text="OFF AIR", font=("Segoe UI", 12, "bold"), fg="#777", anchor="w")
-        self.status_lbl.grid(row=0, column=1, sticky="ew")
-        self.stats_lbl = ttk.Label(top, text="", anchor="w")
-        self.stats_lbl.grid(row=1, column=1, sticky="ew")
+        self.go_btn = theme.PillButton(top, "GO LIVE", theme.GO_GRADIENT, self.toggle, width=190, height=60)
+        self.go_btn.grid(row=0, column=0, rowspan=2, padx=(0, 20))
+        self.status_lbl = tk.Label(top, text="OFF AIR", font=(theme.DISPLAY, 18, "bold"), fg=theme.FAINT,
+                                   bg=theme.BG, anchor="w")
+        self.status_lbl.grid(row=0, column=1, sticky="sew")
+        self.stats_lbl = ttk.Label(top, text="Press GO LIVE when your music is ready.", style="Muted.TLabel",
+                                   anchor="w")
+        self.stats_lbl.grid(row=1, column=1, sticky="new", pady=(2, 0))
 
         meter = ttk.Frame(tab)
-        meter.grid(row=1, column=0, sticky="ew", pady=(10, 2))
+        meter.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         meter.columnconfigure(1, weight=1)
-        ttk.Label(meter, text="Level").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        self.meter = tk.Canvas(meter, height=16, bg="#222", highlightthickness=0)
+        ttk.Label(meter, text="LEVEL", style="Faint.TLabel", font=(theme.FONT, 8, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(0, 12))
+        self.meter = theme.LevelMeter(meter)
         self.meter.grid(row=0, column=1, sticky="ew")
-        self.level_lbl = ttk.Label(meter, text="silent", width=11, anchor="e")
-        self.level_lbl.grid(row=0, column=2, padx=(8, 0))
-        ttk.Label(meter, text="Listen link").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        self.level_lbl = ttk.Label(meter, text="silent", width=11, anchor="e", style="Muted.TLabel")
+        self.level_lbl.grid(row=0, column=2, padx=(10, 0))
+        ttk.Label(meter, text="LISTEN", style="Faint.TLabel", font=(theme.FONT, 8, "bold")).grid(
+            row=1, column=0, sticky="w", padx=(0, 12), pady=(12, 0))
         self.room_url = tk.StringVar()
-        ttk.Entry(meter, textvariable=self.room_url, state="readonly").grid(row=1, column=1, sticky="ew",
-                                                                           pady=(8, 0))
-        ttk.Button(meter, text="Copy", width=9, command=self.copy_room_url).grid(row=1, column=2, padx=(8, 0),
-                                                                                pady=(8, 0), sticky="e")
+        ttk.Entry(meter, textvariable=self.room_url, state="readonly", font=(theme.MONO, 10)).grid(
+            row=1, column=1, sticky="ew", pady=(12, 0))
+        ttk.Button(meter, text="Copy link", style="Accent.TButton", command=self.copy_room_url).grid(
+            row=1, column=2, padx=(10, 0), pady=(12, 0), sticky="ew")
 
-        src = ttk.LabelFrame(tab, text="Audio source", padding=8)
-        src.grid(row=2, column=0, sticky="ew", pady=(8, 4))
+        src = ttk.LabelFrame(tab, text=" Audio source ", padding=(12, 8))
+        src.grid(row=2, column=0, sticky="ew", pady=(10, 2))
         src.columnconfigure(1, weight=1)
         ttk.Radiobutton(src, text=SOURCES["queue"], value="queue", variable=v["source"],
                         command=self.on_source_change).grid(row=0, column=0, columnspan=3, sticky="w")
@@ -157,15 +168,22 @@ class App:
         self.loop_rb.grid(row=1, column=0, sticky="w", pady=(4, 0))
         self.loopback_cb = ttk.Combobox(src, textvariable=v["loopback_device"], state="readonly")
         self.loopback_cb.grid(row=1, column=1, sticky="ew", padx=6, pady=(4, 0))
+        self.app_rb = ttk.Radiobutton(src, text=SOURCES["app"], value="app", variable=v["source"],
+                                      command=self.on_source_change)
+        self.app_rb.grid(row=2, column=0, sticky="w", pady=(4, 0))
+        self.app_cb = ttk.Combobox(src, textvariable=v["app_name"])
+        self.app_cb.grid(row=2, column=1, sticky="ew", padx=6, pady=(4, 0))
         ttk.Radiobutton(src, text=SOURCES["device"], value="device", variable=v["source"],
-                        command=self.on_source_change).grid(row=2, column=0, sticky="w", pady=(4, 0))
+                        command=self.on_source_change).grid(row=3, column=0, sticky="w", pady=(4, 0))
         self.device_cb = ttk.Combobox(src, textvariable=v["device"], state="readonly")
-        self.device_cb.grid(row=2, column=1, sticky="ew", padx=6, pady=(4, 0))
-        ttk.Button(src, text="Refresh", command=self.refresh_devices).grid(row=1, column=2, rowspan=2)
+        self.device_cb.grid(row=3, column=1, sticky="ew", padx=6, pady=(4, 0))
+        ttk.Button(src, text="Refresh", command=self.refresh_devices).grid(row=1, column=2, rowspan=3)
         if not capture.available():
             self.loop_rb.config(state="disabled", text=SOURCES["loopback"] + " - Windows only")
+        if not capture.app_capture_available():
+            self.app_rb.config(state="disabled", text=SOURCES["app"] + " - Windows 10 2004+")
 
-        np_ = ttk.LabelFrame(tab, text="Now playing (stream title)", padding=8)
+        np_ = ttk.LabelFrame(tab, text=" Now playing (stream title) ", padding=(12, 8))
         np_.grid(row=3, column=0, sticky="ew", pady=4)
         np_.columnconfigure(0, weight=1)
         self.np_var = tk.StringVar()
@@ -181,23 +199,25 @@ class App:
                                          state="readonly", width=30)
         self.title_src_cb.pack(side="left", padx=4)
 
-        qf = ttk.LabelFrame(tab, text="Queue", padding=8)
+        qf = ttk.LabelFrame(tab, text=" Queue ", padding=(12, 8))
         qf.grid(row=4, column=0, sticky="nsew", pady=4)
         tab.rowconfigure(4, weight=1)
         qf.columnconfigure(0, weight=1)
         qf.rowconfigure(1, weight=1)
         bar = ttk.Frame(qf)
         bar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
-        for text, cmd in (("Add files...", self.add_files), ("Add folder...", self.add_folder),
-                          ("Add links / search...", self.add_links)):
-            ttk.Button(bar, text=text, command=cmd).pack(side="left", padx=(0, 4))
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
-        for text, cmd, w in (("Play next", self.play_next, 9), ("Skip", self.skip, 6), ("▲", lambda: self.move(-1), 3),
-                             ("▼", lambda: self.move(1), 3), ("Shuffle", self.shuffle, 8),
-                             ("Remove", self.remove_selected, 8), ("Clear", self.clear_queue, 6)):
-            ttk.Button(bar, text=text, width=w, command=cmd).pack(side="left", padx=(0, 4))
+        # Loop is packed first so it keeps its place when the window is narrow
         ttk.Checkbutton(bar, text="Loop", variable=v["loop"],
                         command=lambda: setattr(self.playlist, "loop", self.vars["loop"].get())).pack(side="right")
+        for text, cmd in (("+ Files", self.add_files), ("+ Folder", self.add_folder),
+                          ("+ Links / search", self.add_links)):
+            ttk.Button(bar, text=text, style="Tool.Accent.TButton" if text == "+ Links / search" else "Tool.TButton",
+                       command=cmd).pack(side="left", padx=(0, 4))
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=8)
+        for text, cmd in (("Play next", self.play_next), ("Skip", self.skip), ("▲", lambda: self.move(-1)),
+                          ("▼", lambda: self.move(1)), ("Shuffle", self.shuffle),
+                          ("Remove", self.remove_selected), ("Clear", self.clear_queue)):
+            ttk.Button(bar, text=text, style="Tool.TButton", command=cmd).pack(side="left", padx=(0, 4))
 
         self.tree = ttk.Treeview(qf, columns=("n", "title", "kind"), show="headings", selectmode="extended")
         self.tree.heading("n", text="#")
@@ -206,30 +226,32 @@ class App:
         self.tree.column("n", width=46, stretch=False, anchor="e")
         self.tree.column("kind", width=80, stretch=False)
         self.tree.column("title", width=500)
-        self.tree.tag_configure("current", background="#d9f2dc", font=("Segoe UI", 9, "bold"))
-        self.tree.tag_configure("failed", foreground="#b00020")
+        self.tree.tag_configure("odd", background=theme.mix(theme.SURFACE, "#ffffff", 0.025))
+        self.tree.tag_configure("current", background=theme.mix(theme.PINK, theme.SURFACE, 0.78),
+                                foreground=theme.lighten(theme.PINK, 0.55), font=(theme.FONT, 10, "bold"))
+        self.tree.tag_configure("failed", foreground=theme.RED)
         self.tree.grid(row=1, column=0, sticky="nsew")
         sb = ttk.Scrollbar(qf, orient="vertical", command=self.tree.yview)
         sb.grid(row=1, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=sb.set)
         self.tree.bind("<Double-1>", lambda e: self.play_now())
         self.tree.bind("<Delete>", lambda e: self.remove_selected())
-        self.queue_info = ttk.Label(qf, foreground="#666")
+        self.queue_info = ttk.Label(qf, style="Muted.TLabel")
         self.queue_info.grid(row=2, column=0, sticky="w", pady=(4, 0))
 
     def _build_server_tab(self):
         v = self.vars
-        tab = ttk.Frame(self.nb, padding=10)
-        self.nb.add(tab, text="Server")
+        tab = ttk.Frame(self.nb, padding=(16, 14))
+        self.nb.add(tab, text="  Server  ")
         tab.columnconfigure(0, weight=1)
 
-        srv = ttk.LabelFrame(tab, text="Stream server", padding=8)
+        srv = ttk.LabelFrame(tab, text=" Stream server ", padding=(12, 8))
         srv.grid(row=0, column=0, sticky="ew")
         srv.columnconfigure(1, weight=1)
         cb = self._row(srv, 0, "Provider", ttk.Combobox(srv, textvariable=v["provider"], values=list(PROVIDERS),
                                                         state="readonly", width=30), sticky="w")
         cb.bind("<<ComboboxSelected>>", lambda e: self.on_provider_change(apply=True))
-        self.provider_hint = ttk.Label(srv, foreground="#555", wraplength=640, justify="left")
+        self.provider_hint = ttk.Label(srv, style="Muted.TLabel", wraplength=640, justify="left")
         self.provider_hint.grid(row=1, column=1, sticky="w")
         self._row(srv, 2, "Server type", ttk.Combobox(srv, textvariable=v["server_type"], values=SERVER_TYPES,
                                                       state="readonly", width=16), sticky="w")
@@ -248,16 +270,19 @@ class App:
         self.mount_entry = self._row(srv, 7, "Mount (Icecast)", ttk.Entry(srv, textvariable=v["mount"]))
         self.sid_entry = self._row(srv, 8, "Stream ID (Shoutcast v2)",
                                    ttk.Entry(srv, textvariable=v["sid"], width=6), sticky="w")
-        self.port_hint = ttk.Label(srv, foreground="#555")
+        self.port_hint = ttk.Label(srv, style="Muted.TLabel")
         self.port_hint.grid(row=9, column=1, sticky="w")
         btns = ttk.Frame(srv)
         btns.grid(row=10, column=1, sticky="w", pady=(6, 0))
-        ttk.Button(btns, text="Test connection", command=self.test_connection).pack(side="left")
+        ttk.Button(btns, text="Test connection", style="Accent.TButton", command=self.test_connection).pack(side="left")
         if mixxx_profile_exists():
             ttk.Button(btns, text="Import from Mixxx", command=self.import_mixxx).pack(side="left", padx=6)
 
-        info = ttk.LabelFrame(tab, text="Station", padding=8)
-        info.grid(row=1, column=0, sticky="ew", pady=8)
+        cards = ttk.Frame(tab)                    # Station and Audio quality side by side
+        cards.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        cards.columnconfigure((0, 1), weight=1, uniform="cards")
+        info = ttk.LabelFrame(cards, text=" Station ", padding=(12, 8))
+        info.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         info.columnconfigure(1, weight=1)
         self._row(info, 0, "Station name", ttk.Entry(info, textvariable=v["name"]))
         self._row(info, 1, "Genre", ttk.Entry(info, textvariable=v["genre"]))
@@ -266,8 +291,8 @@ class App:
         self._row(info, 4, "", ttk.Checkbutton(info, text="List in the public station directory",
                                                variable=v["public"]), sticky="w")
 
-        enc = ttk.LabelFrame(tab, text="Audio quality & connection", padding=8)
-        enc.grid(row=2, column=0, sticky="ew")
+        enc = ttk.LabelFrame(cards, text=" Audio quality & connection ", padding=(12, 8))
+        enc.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
         enc.columnconfigure(1, weight=1)
         self._row(enc, 0, "Bitrate (kbps)", ttk.Combobox(enc, textvariable=v["bitrate"], width=8, values=BITRATES,
                                                         state="readonly"), sticky="w")
@@ -275,7 +300,7 @@ class App:
                                                      values=SAMPLERATES, state="readonly"), sticky="w")
         self._row(enc, 2, "Channels", ttk.Combobox(enc, textvariable=v["channels"], width=8, values=[2, 1],
                                                   state="readonly"), sticky="w")
-        self._row(enc, 3, "", ttk.Checkbutton(enc, text="Even out loudness between tracks (queue)",
+        self._row(enc, 3, "", ttk.Checkbutton(enc, text="Even out loudness between tracks",
                                               variable=v["normalize"]), sticky="w")
         self._row(enc, 4, "Reconnect delay (s)", ttk.Entry(enc, textvariable=v["reconnect_delay"], width=8),
                   sticky="w")
@@ -284,11 +309,11 @@ class App:
 
     def _build_integrations_tab(self):
         v = self.vars
-        tab = ttk.Frame(self.nb, padding=10)
-        self.nb.add(tab, text="Integrations")
+        tab = ttk.Frame(self.nb, padding=(16, 14))
+        self.nb.add(tab, text="  Integrations  ")
         tab.columnconfigure(0, weight=1)
 
-        om = ttk.LabelFrame(tab, text="YouTube, SoundCloud, Spotify & other links", padding=8)
+        om = ttk.LabelFrame(tab, text=" YouTube, SoundCloud, Spotify & other links ", padding=(12, 8))
         om.grid(row=0, column=0, sticky="ew")
         om.columnconfigure(1, weight=1)
         self._row(om, 0, "Find songs & Spotify tracks on", ttk.Combobox(
@@ -297,26 +322,26 @@ class App:
         self._row(om, 1, "YouTube sign-in (cookies from)", ttk.Combobox(
             om, textvariable=v["ytdlp_cookies_browser"], values=media.COOKIE_BROWSERS, state="readonly", width=14),
             sticky="w")
-        ttk.Label(om, foreground="#555", wraplength=620, justify="left", text=(
+        ttk.Label(om, style="Muted.TLabel", wraplength=620, justify="left", text=(
             "If YouTube says 'confirm you're not a bot' (common on VPNs), pick the browser you're signed in to "
             "YouTube with. Firefox works best; close Chrome/Edge first if they're chosen. Spotify audio is "
             "DRM-protected, so Spotify links are matched track by track on the service above. To air your "
-            "own Spotify app directly, use 'System audio' as the source.")).grid(row=2, column=1, sticky="w")
+            "own Spotify app directly, use 'One app only' as the source.")).grid(row=2, column=1, sticky="w")
         tl = ttk.Frame(om)
         tl.grid(row=3, column=1, sticky="w", pady=(6, 0))
         self.ytdlp_lbl = ttk.Label(tl, text="yt-dlp: ...")
         self.ytdlp_lbl.pack(side="left")
         ttk.Button(tl, text="Update yt-dlp", command=self.update_ytdlp).pack(side="left", padx=8)
-        self.ffmpeg_lbl = ttk.Label(om, foreground="#555")
+        self.ffmpeg_lbl = ttk.Label(om, style="Muted.TLabel")
         self.ffmpeg_lbl.grid(row=4, column=1, sticky="w")
         threading.Thread(target=self._load_tool_versions, daemon=True).start()
 
-        lf = ttk.LabelFrame(tab, text="Last.fm", padding=8)
+        lf = ttk.LabelFrame(tab, text=" Last.fm ", padding=(12, 8))
         lf.grid(row=1, column=0, sticky="ew", pady=8)
         lf.columnconfigure(1, weight=1)
         self._row(lf, 0, "API key", ttk.Entry(lf, textvariable=v["lastfm_api_key"]))
         self._row(lf, 1, "Shared secret", ttk.Entry(lf, textvariable=v["lastfm_api_secret"], show="•"))
-        link = ttk.Label(lf, text="Get a free API key at last.fm/api/account/create", foreground="#1a5fb4",
+        link = ttk.Label(lf, text="Get a free API key at last.fm/api/account/create", style="Link.TLabel",
                          cursor="hand2")
         link.grid(row=2, column=1, sticky="w")
         link.bind("<Button-1>", lambda e: webbrowser.open(CREATE_KEY_URL))
@@ -324,21 +349,25 @@ class App:
         acct.grid(row=3, column=1, sticky="w", pady=(6, 0))
         ttk.Button(acct, text="Connect Last.fm account...", command=self.lastfm_connect).pack(side="left")
         ttk.Button(acct, text="Disconnect", command=self.lastfm_disconnect).pack(side="left", padx=6)
-        self.lastfm_status = ttk.Label(acct, foreground="#555")
+        self.lastfm_status = ttk.Label(acct, style="Muted.TLabel")
         self.lastfm_status.pack(side="left", padx=6)
         self._row(lf, 4, "", ttk.Checkbutton(lf, text="Scrobble everything the station plays to my account",
                                              variable=v["lastfm_scrobble"]), sticky="w")
         self._row(lf, 5, "Follow user's now playing", ttk.Entry(lf, textvariable=v["lastfm_watch_user"], width=24),
                   sticky="w")
-        ttk.Label(lf, foreground="#555", wraplength=620, justify="left", text=(
+        ttk.Label(lf, style="Muted.TLabel", wraplength=620, justify="left", text=(
             "With 'Live source titles from: Last.fm user's now playing', the stream title follows whatever that "
             "Last.fm user is scrobbling - handy when you play music in another app that scrobbles.")
                   ).grid(row=6, column=1, sticky="w")
 
     def _build_log_tab(self):
-        tab = ttk.Frame(self.nb, padding=6)
-        self.nb.add(tab, text="Log")
-        self.log_box = ScrolledText(tab, state="disabled", wrap="word", font=("Consolas", 9))
+        tab = ttk.Frame(self.nb, padding=(16, 14))
+        self.nb.add(tab, text="  Log  ")
+        self.log_box = tk.Text(tab, state="disabled", wrap="word")       # ttk scrollbar: the classic one can't be themed
+        theme.style_text(self.log_box, mono=True)
+        sb = ttk.Scrollbar(tab, orient="vertical", command=self.log_box.yview)
+        self.log_box.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
         self.log_box.pack(fill="both", expand=True)
 
     # ------------------------------------------------------------------ #
@@ -443,6 +472,7 @@ class App:
         src = self.vars["source"].get()
         self.device_cb.config(state="readonly" if src == "device" else "disabled")
         self.loopback_cb.config(state="readonly" if src == "loopback" else "disabled")
+        self.app_cb.config(state="normal" if src == "app" else "disabled")
         self.title_src_cb.config(state="disabled" if src == "queue" else "readonly")
 
     def refresh_devices(self):
@@ -456,7 +486,13 @@ class App:
         self.loopback_cb.config(values=["Default speakers"] + loops)
         if self.vars["loopback_device"].get() not in loops:
             self.vars["loopback_device"].set("Default speakers")
-        return devices, loops
+        apps = capture.list_apps()
+        self.app_cb.config(values=apps)
+        if not self.vars["app_name"].get():
+            players = [a for a in apps if a.lower() == "spotify.exe"]
+            if players:
+                self.vars["app_name"].set(players[0])
+        return devices, loops, apps
 
     def copy_room_url(self):
         self.root.clipboard_clear()
@@ -576,7 +612,7 @@ class App:
         self.tree.delete(*self.tree.get_children())
         current_idx = None
         for i, it in enumerate(items):
-            tags = ()
+            tags = ("odd",) if i % 2 else ()
             mark = ""
             if it is cursor and self.broadcaster:
                 tags, mark, current_idx = ("current",), "▶ ", i
@@ -616,6 +652,9 @@ class App:
             return
         if cfg["loopback_device"] == "Default speakers":
             cfg["loopback_device"] = ""
+        if cfg["source"] == "app" and not cfg["app_name"].strip():
+            messagebox.showwarning(APP_NAME, "Pick the app to air (start it first, then press Refresh).")
+            return
         if cfg["source"] == "queue" and not self.playlist.items:
             if not messagebox.askyesno(APP_NAME, "The queue is empty. Go live anyway (silence until you add "
                                                  "tracks)?"):
@@ -636,7 +675,7 @@ class App:
                                               cfg["lastfm_session"]), lambda m: self.post("log", m))
         self.silent_since, self.silence_warned = None, False
         self.last_bytes, self.kbps = (0, time.time()), 0.0
-        self.go_btn.config(text="STOP", bg="#c62828", activebackground="#8e0000")
+        self.go_btn.configure_button("STOP", theme.STOP_GRADIENT)
         self.log(f"Starting broadcast ({SOURCES[cfg['source']]})")
 
     def stop(self, reason="Broadcast stopped."):
@@ -648,15 +687,16 @@ class App:
             s = self.scrobbler
             self.in_background(s.title_changed, None)
             self.scrobbler = None
-        self.go_btn.config(text="GO LIVE", bg="#2e7d32", activebackground="#1b5e20")
+        self.go_btn.configure_button("GO LIVE", theme.GO_GRADIENT)
         self.set_status("off", "OFF AIR")
-        self.stats_lbl.config(text="")
+        self.stats_lbl.config(text="Press GO LIVE when your music is ready.")
         self.level = -120.0
         self.refresh_queue(force=True)
 
     def set_status(self, state, text):
-        colors = {"live": "#c62828", "connecting": "#ef6c00", "error": "#ef6c00", "off": "#777"}
-        self.status_lbl.config(text=("● " if state == "live" else "") + text, fg=colors.get(state, "#777"))
+        colors = {"live": theme.RED, "connecting": theme.AMBER, "error": theme.AMBER, "off": theme.FAINT}
+        self.status_state = state
+        self.status_lbl.config(text=("● " if state == "live" else "") + text, fg=colors.get(state, theme.FAINT))
 
     def push_metadata(self, title=None):
         title = (title if title is not None else self.np_var.get()).strip()
@@ -794,16 +834,11 @@ class App:
         self.root.after(100, self.poll)
 
     def update_meter(self):
-        w, h = self.meter.winfo_width(), self.meter.winfo_height()
-        self.meter.delete("all")
         lvl = self.level
-        frac = min(1.0, max(0.0, (lvl + 60) / 60))
-        color = "#43a047" if lvl < -12 else "#fdd835" if lvl < -5 else "#e53935"
-        if frac > 0:
-            self.meter.create_rectangle(0, 0, int(w * frac), h, fill=color, width=0)
-        for db in (-48, -36, -24, -12):
-            x = int(w * (db + 60) / 60)
-            self.meter.create_line(x, 0, x, h, fill="#555")
+        self.meter.draw(min(1.0, max(0.0, (lvl + 60) / 60)))
+        if getattr(self, "status_state", "") == "live":           # a slow on-air pulse
+            pulse = (math.sin(time.time() * 3.2) + 1) / 2
+            self.status_lbl.config(fg=theme.mix(theme.RED, theme.PINK, pulse * 0.7))
         self.level_lbl.config(text="silent" if lvl <= -70 else f"{lvl:.1f} LUFS")
         b = self.broadcaster
         if b and b.live and b.cfg["source"] != "queue":
@@ -830,14 +865,21 @@ class App:
                                    f"Sent {b.bytes_sent / 1e6:.1f} MB   {self.kbps:.0f} kbps")
 
 
+def icon_path():
+    return next((d.parent / "assets" / "icon.png" for d in tools.bundle_dirs()
+                 if (d.parent / "assets" / "icon.png").is_file()), None)
+
+
 class LinkDialog(tk.Toplevel):
     def __init__(self, parent, on_add):
         super().__init__(parent)
         self.on_add = on_add
         self.title("Add links / search")
-        self.geometry("640x400")
+        self.geometry("680x460")
+        self.configure(bg=theme.BG)
         self.transient(parent)
-        frm = ttk.Frame(self, padding=10)
+        theme.dark_titlebar(self)
+        frm = ttk.Frame(self, padding=(18, 14))
         frm.pack(fill="both", expand=True)
         ttk.Label(frm, justify="left", wraplength=610, text=(
             "One per line. Supported:\n"
@@ -847,7 +889,8 @@ class LinkDialog(tk.Toplevel):
             "SoundCloud)\n"
             "• Internet radio & direct audio links (.mp3, .aac, .m3u, .pls, HLS)\n"
             "• A song name like 'Daft Punk - One More Time' (searched online)")).pack(anchor="w")
-        self.text = tk.Text(frm, height=10, wrap="none", font=("Consolas", 10))
+        self.text = tk.Text(frm, height=10, wrap="none")
+        theme.style_text(self.text, mono=True)
         self.text.pack(fill="both", expand=True, pady=8)
         try:
             clip = self.clipboard_get()
@@ -857,7 +900,7 @@ class LinkDialog(tk.Toplevel):
             pass
         btns = ttk.Frame(frm)
         btns.pack(fill="x")
-        ttk.Button(btns, text="Add to queue", command=self.add).pack(side="right")
+        ttk.Button(btns, text="Add to queue", style="Accent.TButton", command=self.add).pack(side="right")
         ttk.Button(btns, text="Cancel", command=self.destroy).pack(side="right", padx=6)
         self.text.focus_set()
         self.grab_set()
@@ -878,12 +921,8 @@ def run():
         except (OSError, AttributeError):
             pass
     root = tk.Tk()
-    try:
-        ttk.Style().theme_use("vista" if sys.platform == "win32" else "clam")
-    except tk.TclError:
-        pass
-    icon = next((d.parent / "assets" / "icon.png" for d in tools.bundle_dirs()
-                 if (d.parent / "assets" / "icon.png").is_file()), None)
+    theme.apply(root)
+    icon = icon_path()
     if icon:
         try:
             root.iconphoto(True, tk.PhotoImage(file=str(icon)))

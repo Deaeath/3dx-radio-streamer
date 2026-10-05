@@ -26,9 +26,9 @@ from radiostreamer import config, engine, gui, media, protocol  # noqa: E402
 music, out = Path(sys.argv[1]), Path(sys.argv[2])
 out.mkdir(parents=True, exist_ok=True)
 
-DEMO = dict(config.DEFAULTS, provider="Other Shoutcast v1", server_type="Shoutcast v1",
+DEMO = dict(config.DEFAULTS, provider="Listen2MyRadio", server_type="Shoutcast v1",
             host="my-radio.example.com", port=8000, password="sunshine123", name="Sunshine Radio",
-            genre="Kids & Family", source="queue", wizard_done=True, title_source="Manual")
+            genre="Various", source="queue", wizard_done=True, title_source="Manual")
 config.save_settings(DEMO)
 
 # Point every connection at a local stand-in server instead of the made-up host
@@ -65,7 +65,7 @@ orig_init = gui.App.__init__
 
 def init(app, root):
     orig_init(app, root)
-    root.geometry("900x760+80+40")
+    root.geometry("940x880+60+20")
     steps = []
 
     def after(ms, fn):

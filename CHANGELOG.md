@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0 - 2026-10-04
+
+- A new look: a dark theme with a pink-to-violet gradient header, a glowing GO LIVE / STOP
+  button, an LED-style level meter with peak hold, a pulsing on-air label, a step-by-step
+  sidebar in the setup wizard, and dark title bars on Windows 11. It's still pure tkinter,
+  so nothing new to install.
+- New live source, **One app only**: air just Spotify, a browser or any other app, with game,
+  chat and notification sounds left out. It uses Windows' per-app capture (Windows 10 version
+  2004 or newer), so no virtual cable or driver is needed.
+- Listen2MyRadio is the recommended free host. The setup wizard links to its sign-up page and
+  control panel, and the README walks through its Stream Details.
+- README wording is now for new and advanced users rather than kids and grown-ups.
+- Works with [3DXModKit](https://github.com/Deaeath/3DXModKit) 1.1.0: its Mods tab installs and
+  starts the streamer, and its `radio-streamer` mod prints the exact link to paste into a room radio.
+
 ## 1.0.0 - 2026-10-04
 
 The first public release.
