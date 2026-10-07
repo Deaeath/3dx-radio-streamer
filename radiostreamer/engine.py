@@ -19,14 +19,49 @@ import subprocess
 import sys
 import threading
 import time
+import warnings
+
+with warnings.catch_warnings():          # audioop is deprecated but still the fastest mixer in 3.12
+    warnings.simplefilter("ignore", DeprecationWarning)
+    try:
+        import audioop
+    except ImportError:                   # Python 3.13+: slower pure-Python fallback below
+        audioop = None
+import array
 
 from . import capture, media, nowplaying, tools
 from .config import CACHE_DIR
 from .protocol import StreamError, open_source_connection
 
 CHUNK_SEC = 0.05
-PREBUFFER = 4          # chunks a source must hold before it starts playing (200 ms)
-MAX_BACKLOG = 30       # live sources: drop audio beyond 1.5 s of backlog (clock drift)
+PREBUFFER = 4          # chunks a file/stream source must hold before it starts playing (200 ms)
+MAX_BACKLOG = 60       # live sources: only drop audio if we're more than 3 s behind
+LIVE_IDLE = 0.25       # a live source silent this long (nothing playing) gets silence filled in
+MIC_PREBUFFER = 2      # mic jitter buffer (100 ms)
+MIC_MAX = 6            # keep mic latency under 300 ms
+
+
+def scale_mix(a, b, gain_from, gain_to, gain_b, frame=4):
+    """Mix two equal-length s16le chunks: a fades smoothly from gain_from to gain_to (no clicks), b * gain_b."""
+    if gain_from == gain_to:
+        parts = [(a, gain_from)]
+    else:                                   # 16 small steps across the chunk, each on a frame boundary
+        n = 16
+        size = (len(a) // n) // frame * frame
+        parts = [(a[k * size:(k + 1) * size if k < n - 1 else len(a)], gain_from + (gain_to - gain_from) * (k + 1) / n)
+                 for k in range(n)]
+    if audioop:
+        out = b"".join(audioop.mul(seg, 2, g) if g != 1 else seg for seg, g in parts)
+        if b is not None:
+            out = audioop.add(out, audioop.mul(b, 2, gain_b) if gain_b != 1 else b, 2)
+        return out
+    x = array.array("h", b"".join(bytes(seg) for seg, _ in parts))
+    gains = [g for seg, g in parts for _ in range(len(seg) // 2)]
+    y = array.array("h", b) if b is not None else None
+    for k in range(len(x)):
+        v = x[k] * gains[k] + (y[k] * gain_b if y is not None else 0)
+        x[k] = -32768 if v < -32768 else 32767 if v > 32767 else int(v)
+    return x.tobytes()
 EOF = object()
 LEVEL_RE = re.compile(r"\bM:\s*(-?[\d.]+|-?inf|nan)")
 
@@ -188,11 +223,29 @@ class PCMSource:
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=self._read_err, daemon=True).start()
         if self.feeder:
+            # The audio callback must never block (Windows drops sound if it does), so it only queues
+            # the data; this thread does the (possibly slow) pipe writes.
+            fq = queue.Queue(maxsize=200)
             stdin = self.proc.stdin
 
+            def pump():
+                while not self.closed:
+                    try:
+                        data = fq.get(timeout=0.25)
+                    except queue.Empty:
+                        continue
+                    try:
+                        stdin.write(data)
+                        stdin.flush()
+                    except (OSError, ValueError):
+                        return
+            threading.Thread(target=pump, daemon=True).start()
+
             def feed(data):
-                stdin.write(data)
-                stdin.flush()
+                try:
+                    fq.put_nowait(data)
+                except queue.Full:
+                    pass
             self.feeder.start(feed)
 
     def _read(self):
@@ -232,6 +285,12 @@ class PCMSource:
     def get(self):
         try:
             return self.q.get_nowait()
+        except queue.Empty:
+            return None
+
+    def get_wait(self, timeout):
+        try:
+            return self.q.get(timeout=timeout)
         except queue.Empty:
             return None
 
@@ -298,6 +357,11 @@ class Broadcaster:
         self.next_src = None
         self.next_lock = threading.Lock()
         self.current_title = ""
+        self.mic_on = bool(cfg.get("mic_on"))
+        self.mic_src = None
+        self.mic_buffering = True
+        self.mic_retry = 0.0
+        self.music_gain = 1.0
 
     # -- lifecycle ---------------------------------------------------------- #
     def start(self):
@@ -332,6 +396,9 @@ class Broadcaster:
     def skip(self):
         self.skip_event.set()
 
+    def set_mic(self, on):
+        self.mic_on = bool(on)
+
     @property
     def live(self):
         return self.sock is not None
@@ -348,7 +415,8 @@ class Broadcaster:
         cmd = [self.ffmpeg, "-hide_banner", "-nostdin", "-nostats",
                "-probesize", "32", "-analyzeduration", "0", "-fflags", "nobuffer",
                "-f", "s16le", "-ar", str(self.sr), "-ac", str(self.ch), "-i", "pipe:0",
-               "-af", "ebur128=framelog=info",
+               # limiter: loud sources would otherwise clip and crackle once encoded to MP3
+               "-af", "alimiter=limit=0.9:attack=5:release=60:level=false,ebur128=framelog=info",
                "-c:a", "libmp3lame", "-b:a", f"{int(self.cfg['bitrate'])}k",
                "-write_xing", "0", "-id3v2_version", "0", "-flush_packets", "1", "-f", "mp3", "pipe:1"]
         self.encoder = tools.popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -443,8 +511,11 @@ class Broadcaster:
     # -- sources ------------------------------------------------------------ #
     def _decoder_cmd(self, input_args, live):
         cmd = [self.ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-loglevel", "error"] + input_args + ["-vn"]
-        if self.cfg.get("normalize") and not live:
-            cmd += ["-af", "loudnorm=I=-14:TP=-1.5:LRA=11"]
+        if not live:
+            chain = ["afade=t=in:d=0.03"]
+            if self.cfg.get("normalize"):
+                chain.append("loudnorm=I=-14:TP=-1.5:LRA=11")
+            cmd += ["-af", ",".join(chain)]
         return cmd + ["-f", "s16le", "-ar", str(self.sr), "-ac", str(self.ch), "pipe:1"]
 
     def _live_source(self):
@@ -562,6 +633,38 @@ class Broadcaster:
                               if items else "Queue is empty - add tracks (sending silence).")
                     self.emit("track", "")
 
+            if cur is not None and cur.live:
+                # A live source (system audio, input device, internet radio) runs on its own clock:
+                # pass its audio through as it arrives, so there's nothing to drift against.
+                data = cur.get_wait(LIVE_IDLE)
+                if data is EOF:
+                    reason = cur.error() or "ended"
+                    live_failures += 1 if cur.bytes == 0 else 0
+                    cur.close()
+                    cur = None
+                    if live_failures >= 3:
+                        self.emit("fatal", f"Cannot open the audio source: {reason}")
+                        return
+                    self.emit("log", f"Audio source stopped ({reason}) - restarting")
+                    retry_at = time.monotonic() + 3
+                    continue
+                if data is None:
+                    chunks = [silence] * round(LIVE_IDLE / CHUNK_SEC)   # quiet source: keep the stream alive
+                else:
+                    live_failures = 0
+                    chunks = [data if len(data) == self.chunk_bytes else data + bytes(self.chunk_bytes - len(data))]
+                try:
+                    for chunk in chunks:
+                        stdin.write(self._with_mic(chunk))
+                    stdin.flush()
+                except (OSError, ValueError):
+                    if not self.stop_event.is_set():
+                        tail = self.encoder_tail[-1] if self.encoder_tail else "encoder exited"
+                        self.emit("fatal", f"MP3 encoder stopped: {tail}")
+                    break
+                t_next = time.monotonic()
+                continue
+
             data = None
             if cur is not None:
                 if buffering and cur.ready():
@@ -581,17 +684,11 @@ class Broadcaster:
                         self._finish(cur)
                         cur = None
                         continue          # take the next track in the same time slot
-                    if data is None and cur.live:
-                        buffering = True
-                    elif cur.live:
-                        live_failures = 0
-                        cur.trim_backlog(MAX_BACKLOG)
-
             out = data if data else silence
             if len(out) < self.chunk_bytes:
                 out += bytes(self.chunk_bytes - len(out))
             try:
-                stdin.write(out)
+                stdin.write(self._with_mic(out))
                 stdin.flush()
             except (OSError, ValueError):
                 if not self.stop_event.is_set():
@@ -607,6 +704,57 @@ class Broadcaster:
                 t_next = time.monotonic()
         if cur is not None:
             cur.close()
+        if self.mic_src is not None:
+            self.mic_src.close()
+
+    # -- microphone ------------------------------------------------------------ #
+    def _with_mic(self, chunk):
+        """Mix the mic over the music, turning the music down while the mic is on."""
+        device = self.cfg.get("mic_device", "")
+        want = self.mic_on and bool(device)
+        if want and self.mic_src is None and time.monotonic() >= self.mic_retry:
+            try:
+                self.mic_src = PCMSource(self._decoder_cmd(tools.device_input_args(device), True),
+                                         self.chunk_bytes, True, title=device)
+                self.mic_src.start()
+                self.mic_buffering = True
+                self.emit("log", f"Mic on ({device})")
+            except OSError as e:
+                self.mic_src = None
+                self.mic_retry = time.monotonic() + 3
+                self.emit("log", f"Mic error: {e}")
+        if not want and self.mic_src is not None:
+            self.mic_src.close()
+            self.mic_src = None
+            self.emit("log", "Mic off")
+
+        mic = None
+        if self.mic_src is not None:
+            if self.mic_buffering and self.mic_src.q.qsize() >= MIC_PREBUFFER:
+                self.mic_buffering = False
+            if not self.mic_buffering:
+                mic = self.mic_src.get()
+                if mic is EOF:
+                    self.emit("log", f"Mic stopped ({self.mic_src.error() or 'ended'}) - retrying")
+                    self.mic_src.close()
+                    self.mic_src, mic = None, None
+                    self.mic_retry = time.monotonic() + 3
+                elif mic is None:
+                    self.mic_buffering = True
+                else:
+                    self.mic_src.trim_backlog(MIC_MAX)
+                    if len(mic) < len(chunk):
+                        mic += bytes(len(chunk) - len(mic))
+
+        # duck the music smoothly (about 200 ms) while the mic is on
+        target = max(0.0, min(1.0, float(self.cfg.get("mic_duck", 30)) / 100)) if self.mic_src is not None else 1.0
+        step = 0.25
+        before = self.music_gain
+        self.music_gain = min(target, before + step) if before < target else max(target, before - step)
+        if mic is None and before >= 0.999 and self.music_gain >= 0.999:
+            return chunk
+        gain_mic = max(0.0, float(self.cfg.get("mic_gain", 100)) / 100)
+        return scale_mix(chunk, mic, before, self.music_gain, gain_mic, frame=2 * self.ch)
 
     # -- titles for live sources -------------------------------------------- #
     def _title_watcher(self):

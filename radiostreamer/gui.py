@@ -51,8 +51,11 @@ class App:
                 continue
             if isinstance(default, bool):
                 self.vars[key] = tk.BooleanVar(value=bool(cfg[key]))
+            elif key in ("mic_gain", "mic_duck"):
+                self.vars[key] = tk.DoubleVar(value=float(cfg[key]))
             else:
                 self.vars[key] = tk.StringVar(value=str(cfg[key]))
+        self.mic_on = False      # always starts off, so nobody goes on air by surprise
 
         root.title(f"{APP_NAME} {VERSION}")
         root.geometry("940x880")
@@ -90,6 +93,7 @@ class App:
         self.on_server_change()
         self.on_provider_change(apply=False)
         self.refresh_lastfm_status()
+        self.root.bind_all("<F9>", lambda e: self.toggle_mic())
         self.root.after(100, self.poll)
         if first_run or not cfg["wizard_done"]:
             self.root.after(300, self.open_wizard)
@@ -183,8 +187,31 @@ class App:
         if not capture.app_capture_available():
             self.app_rb.config(state="disabled", text=SOURCES["app"] + " - Windows 10 2004+")
 
+        mic = ttk.LabelFrame(tab, text=" Microphone ", padding=(12, 8))
+        mic.grid(row=3, column=0, sticky="ew", pady=4)
+        self.mic_btn = theme.PillButton(mic, "MIC OFF", (theme.RAISED, theme.HOVER), self.toggle_mic,
+                                        width=130, height=52, font_size=12)
+        self.mic_btn.grid(row=0, column=0, rowspan=3, padx=(0, 14), sticky="n")
+        self.mic_cb = ttk.Combobox(mic, textvariable=v["mic_device"], state="readonly")
+        self.mic_cb.grid(row=0, column=1, columnspan=4, sticky="ew")
+        self.mic_cb.bind("<<ComboboxSelected>>", lambda e: self.on_mic_settings(restart=True))
+        self.mic_gain_lbl = ttk.Label(mic, width=16, style="Muted.TLabel")
+        self.mic_gain_lbl.grid(row=1, column=1, sticky="w", pady=(6, 0))
+        ttk.Scale(mic, from_=0, to=200, variable=v["mic_gain"], command=lambda _=None: self.on_mic_settings()
+                  ).grid(row=1, column=2, sticky="ew", padx=6, pady=(6, 0))
+        self.mic_duck_lbl = ttk.Label(mic, width=24, style="Muted.TLabel")
+        self.mic_duck_lbl.grid(row=1, column=3, sticky="w", pady=(6, 0))
+        ttk.Scale(mic, from_=0, to=100, variable=v["mic_duck"], command=lambda _=None: self.on_mic_settings()
+                  ).grid(row=1, column=4, sticky="ew", padx=6, pady=(6, 0))
+        mic.columnconfigure(2, weight=1)
+        mic.columnconfigure(4, weight=1)
+        self.mic_hint = ttk.Label(mic, style="Faint.TLabel",
+                                  text="Talk over the music. F9 turns the mic on and off; the music fades down while it's on.")
+        self.mic_hint.grid(row=2, column=1, columnspan=4, sticky="w", pady=(4, 0))
+        self.on_mic_settings()
+
         np_ = ttk.LabelFrame(tab, text=" Now playing (stream title) ", padding=(12, 8))
-        np_.grid(row=3, column=0, sticky="ew", pady=4)
+        np_.grid(row=4, column=0, sticky="ew", pady=4)
         np_.columnconfigure(0, weight=1)
         self.np_var = tk.StringVar()
         np_entry = ttk.Entry(np_, textvariable=self.np_var)
@@ -200,8 +227,8 @@ class App:
         self.title_src_cb.pack(side="left", padx=4)
 
         qf = ttk.LabelFrame(tab, text=" Queue ", padding=(12, 8))
-        qf.grid(row=4, column=0, sticky="nsew", pady=4)
-        tab.rowconfigure(4, weight=1)
+        qf.grid(row=5, column=0, sticky="nsew", pady=4)
+        tab.rowconfigure(5, weight=1)
         qf.columnconfigure(0, weight=1)
         qf.rowconfigure(1, weight=1)
         bar = ttk.Frame(qf)
@@ -384,7 +411,7 @@ class App:
                 cfg[key] = bool(raw)
             elif isinstance(default, int):
                 try:
-                    cfg[key] = int(str(raw).strip())
+                    cfg[key] = int(float(str(raw).strip()))
                 except ValueError:
                     raise ValueError(f"'{key.replace('_', ' ')}' must be a number (got '{raw}')") from None
             else:
@@ -482,6 +509,10 @@ class App:
         if devices and cur not in devices:
             cable = [d for d in devices if "CABLE Output" in d]
             self.vars["device"].set(cable[0] if cable else devices[0])
+        self.mic_cb.config(values=devices)
+        if devices and self.vars["mic_device"].get() not in devices:
+            mics = [d for d in devices if "mic" in d.lower() and "virtual" not in d.lower()] or devices
+            self.vars["mic_device"].set(mics[0])
         loops = capture.list_loopback_devices()
         self.loopback_cb.config(values=["Default speakers"] + loops)
         if self.vars["loopback_device"].get() not in loops:
@@ -493,6 +524,33 @@ class App:
             if players:
                 self.vars["app_name"].set(players[0])
         return devices, loops, apps
+
+    def toggle_mic(self):
+        if not self.vars["mic_device"].get():
+            messagebox.showinfo(APP_NAME, "Pick a microphone first (press Refresh if it isn't listed).")
+            return
+        self.mic_on = not self.mic_on
+        on = self.mic_on
+        self.mic_btn.configure_button("MIC ON" if on else "MIC OFF", theme.STOP_GRADIENT if on else (theme.RAISED, theme.HOVER))
+        if self.broadcaster:
+            self.on_mic_settings()
+            self.broadcaster.set_mic(on)
+        elif on:
+            self.log("Mic armed - it goes on air when you press GO LIVE.")
+
+    def on_mic_settings(self, restart=False):
+        gain, duck = int(float(self.vars["mic_gain"].get())), int(float(self.vars["mic_duck"].get()))
+        self.mic_gain_lbl.config(text=f"Mic volume {gain}%")
+        self.mic_duck_lbl.config(text=f"Music while talking {duck}%")
+        b = self.broadcaster
+        if not b:
+            return
+        b.cfg["mic_device"] = self.vars["mic_device"].get()
+        b.cfg["mic_gain"] = int(float(self.vars["mic_gain"].get()))
+        b.cfg["mic_duck"] = int(float(self.vars["mic_duck"].get()))
+        if restart and self.mic_on:          # switch to the newly picked mic
+            b.set_mic(False)
+            self.root.after(300, lambda: self.broadcaster and self.mic_on and self.broadcaster.set_mic(True))
 
     def copy_room_url(self):
         self.root.clipboard_clear()
@@ -661,6 +719,7 @@ class App:
                 return
         self.save()
         self.playlist.loop = cfg["loop"]
+        cfg["mic_on"] = self.mic_on
         b = Broadcaster(cfg, self.playlist, None)
         b.emit = lambda kind, payload=None: self.events.put((kind, payload, b))
         try:
