@@ -80,7 +80,7 @@ class App:
         self._build_integrations_tab()
         self._build_log_tab()
         self.statusbar = ttk.Label(root, anchor="w", style="Status.TLabel")
-        self.statusbar.pack(fill="x")
+        self.statusbar.pack(fill="x", side="bottom", before=self.nb)
 
         for key in ("server_type", "host", "port", "mount", "sid"):
             self.vars[key].trace_add("write", lambda *a: self.on_server_change())
@@ -301,9 +301,12 @@ class App:
         self.port_hint.grid(row=9, column=1, sticky="w")
         btns = ttk.Frame(srv)
         btns.grid(row=10, column=1, sticky="w", pady=(6, 0))
-        ttk.Button(btns, text="Test connection", style="Accent.TButton", command=self.test_connection).pack(side="left")
+        self.test_btn = ttk.Button(btns, text="Test connection", style="Accent.TButton", command=self.test_connection)
+        self.test_btn.pack(side="left")
         if mixxx_profile_exists():
             ttk.Button(btns, text="Import from Mixxx", command=self.import_mixxx).pack(side="left", padx=6)
+        self.test_lbl = ttk.Label(srv, style="Muted.TLabel", wraplength=620, justify="left")
+        self.test_lbl.grid(row=11, column=1, sticky="w", pady=(6, 0))
 
         cards = ttk.Frame(tab)                    # Station and Audio quality side by side
         cards.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
@@ -566,23 +569,48 @@ class App:
         self.log(msg)
         return imported
 
+    def show_test(self, ok, msg):
+        if getattr(self, "test_lbl", None) is not None:
+            self.test_lbl.config(text=("\u2713 " if ok else "\u2717 ") + msg if ok is not None else msg,
+                                 style="Muted.TLabel" if ok is None else "Success.TLabel" if ok else "Danger.TLabel")
+
     def test_connection(self, callback=None):
         try:
             cfg = self.collect()
         except ValueError as e:
             messagebox.showerror(APP_NAME, str(e))
             return
+        b = self.broadcaster
+        if b is not None:
+            # Already broadcasting: a second login could knock the live stream off, so report on it instead
+            if b.live:
+                ok, msg = True, f"You're live - the server is receiving your stream ({b.bytes_sent / 1e6:.1f} MB sent so far)."
+            else:
+                ok, msg = False, "The broadcast is trying to reconnect - see the Log tab for the reason."
+            self.show_test(ok, msg)
+            self.log(msg)
+            if callback:
+                callback(ok, msg)
+            return
+        self.show_test(None, f"Testing {cfg['host']}:{cfg['port']}...")
+        self.test_btn.state(["disabled"]) if getattr(self, "test_btn", None) else None
         self.log(f"Testing login at {cfg['host']}:{cfg['port']} ({cfg['server_type']})...")
+
+        def done(ok, msg):
+            self.show_test(ok, msg)
+            if getattr(self, "test_btn", None):
+                self.test_btn.state(["!disabled"])
+            if callback:
+                callback(ok, msg)
 
         def work():
             try:
                 open_source_connection(cfg).close()
-                ok, msg = True, "Connection OK - the server accepted the login."
+                ok, msg = True, "Connected - the server accepted the login. You're ready to go live."
             except StreamError as e:
                 ok, msg = False, f"Connection failed: {e}"
             self.post("log", msg)
-            if callback:
-                self.post("call", lambda: callback(ok, msg))
+            self.post("call", lambda: done(ok, msg))
         self.in_background(work)
 
     # ------------------------------------------------------------------ #

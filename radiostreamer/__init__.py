@@ -2,4 +2,4 @@
 
 APP_NAME = "3DX Radio Streamer"
 APP_ID = "3DXRadioStreamer"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
