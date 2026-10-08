@@ -27,6 +27,8 @@ def mount_path(cfg):
 
 def listener_url(cfg):
     """The URL listeners play."""
+    if cfg.get("server_type") == "Built-in (this PC)":
+        return ""                       # known once the built-in server and its link are up
     host = str(cfg.get("host", "")).strip() or "host"
     port = cfg.get("port", "")
     if cfg.get("server_type") == "Icecast 2":

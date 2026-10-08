@@ -65,11 +65,16 @@ Everything the app needs is already inside, so there's nothing else to install.
 > 🛡️ Windows might say *"Windows protected your PC"*. That's because the app is brand new.
 > Click **More info**, then **Run anyway**.
 
-### Step 2: Get a radio server
+### Step 2: Choose where your station lives
 
-Your station needs a home on the internet called a **radio server**. We recommend
-**[Listen2MyRadio](https://newl2mr.listen2myradio.com/signup)**. It's free, and it's the
-app's default choice. After you sign up, open the
+**The easy way: Host it myself.** It's the app's default. There's no account, nothing to copy and no
+router settings: when you press GO LIVE, the app gives you a free public link (`https://...trycloudflare.com`)
+to paste into your room radio or share with friends. Listeners connect to your PC, so each one uses about
+0.13 Mbps of your upload. The link changes each time you go live.
+
+Prefer a fixed link? Pick **Direct** under *Host on this PC* (it asks your router to open the port; this
+doesn't work on a VPN), or use a radio host like **[Listen2MyRadio](https://newl2mr.listen2myradio.com/signup)**.
+For Listen2MyRadio, sign up, open the
 **[control panel](https://newl2mr.listen2myradio.com/control-panel)** and look under
 **Stream Details** for three things you'll need:
 

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0 - 2026-10-08
+
+### Host it yourself - no radio host account
+- New **Host it myself (free, no account)** option, now the default for new installs: the app is the
+  stream server, so there's nothing to sign up for or copy. Press GO LIVE and share the link it shows.
+- **Easy** (recommended) gives you a free public `https://...trycloudflare.com` link through a Cloudflare
+  tunnel. It works behind any router, CGNAT or VPN, with no port forwarding. The tool is downloaded the
+  first time you use it, and the link only appears once it really works. It changes each time you go live.
+- **Direct** asks your router to open the port (UPnP) and gives a fixed `http://your-ip:port/` link, and
+  warns if your connection can't take incoming listeners (VPN, CGNAT). **Local network only** is for testing.
+- Song titles reach players that support them, a browser opening the link gets a small player page,
+  and the Broadcast tab shows how many people are listening.
+
+### Better live audio (from 1.2.0)
+- Fixed occasional pops and dropouts with live sources (system audio, one app, input devices): the stream
+  now follows the sound card's own clock instead of drifting against it.
+- A limiter before the encoder stops loud tracks crackling; tracks fade in for 30 ms so they don't click.
+
+### Microphone
+- New **Microphone** section: pick a mic, press **MIC** (or F9) to talk over the music. The music fades
+  down while the mic is on (adjustable), with no clicks. The mic always starts off.
+
+### Fixes
+- **Test connection** shows its result under the button, and while you're live it only confirms you're on
+  air instead of logging in a second time (which could knock the live stream off).
+- The status bar always stays visible.
+
 ## 1.1.0 - 2026-10-04
 
 - A new look: a dark theme with a pink-to-violet gradient header, a glowing GO LIVE / STOP

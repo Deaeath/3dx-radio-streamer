@@ -9,6 +9,7 @@
 | yt-dlp | Reading YouTube / SoundCloud / other links | Unlicense | https://github.com/yt-dlp/yt-dlp |
 | PyAudioWPatch / PortAudio | Windows system-audio (WASAPI loopback) capture | MIT | https://github.com/s0d3s/PyAudioWPatch |
 | Python & Tcl/Tk | Runtime and user interface | PSF License / Tcl/Tk License | https://python.org |
+| cloudflared | Free public link for "Host it myself → Easy" (downloaded on first use, not bundled) | Apache 2.0 | https://github.com/cloudflare/cloudflared |
 | PyInstaller bootloader | Windows executable | GPL v2 with bootloader exception | https://pyinstaller.org |
 
 FFmpeg is shipped as a separate, unmodified executable and called as a subprocess. To comply with

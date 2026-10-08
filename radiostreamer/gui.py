@@ -12,7 +12,7 @@ import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 from . import APP_NAME, VERSION, capture, media, theme, tools
-from .config import (BITRATES, CACHE_DIR, DATA_DIR, DEFAULTS, PROVIDERS, SAMPLERATES, SERVER_TYPES,
+from .config import (BUILTIN, HOST_MODES, BITRATES, CACHE_DIR, DATA_DIR, DEFAULTS, PROVIDERS, SAMPLERATES, SERVER_TYPES,
                      SETTINGS_FILE, SOURCES, TITLE_SOURCES, import_mixxx_profile, load_settings,
                      mixxx_profile_exists, save_settings)
 from .engine import Broadcaster, Playlist
@@ -274,6 +274,7 @@ class App:
 
         srv = ttk.LabelFrame(tab, text=" Stream server ", padding=(12, 8))
         srv.grid(row=0, column=0, sticky="ew")
+        self.srv_frame = srv
         srv.columnconfigure(1, weight=1)
         cb = self._row(srv, 0, "Provider", ttk.Combobox(srv, textvariable=v["provider"], values=list(PROVIDERS),
                                                         state="readonly", width=30), sticky="w")
@@ -282,8 +283,8 @@ class App:
         self.provider_hint.grid(row=1, column=1, sticky="w")
         self._row(srv, 2, "Server type", ttk.Combobox(srv, textvariable=v["server_type"], values=SERVER_TYPES,
                                                       state="readonly", width=16), sticky="w")
-        self._row(srv, 3, "Host / IP", ttk.Entry(srv, textvariable=v["host"]))
-        self._row(srv, 4, "Port", ttk.Entry(srv, textvariable=v["port"], width=8), sticky="w")
+        self.host_entry = self._row(srv, 3, "Host / IP", ttk.Entry(srv, textvariable=v["host"]))
+        self.port_entry = self._row(srv, 4, "Port", ttk.Entry(srv, textvariable=v["port"], width=8), sticky="w")
         pw = ttk.Frame(srv)
         pw.columnconfigure(0, weight=1)
         self.pw_entry = ttk.Entry(pw, textvariable=v["password"], show="•")
@@ -307,6 +308,24 @@ class App:
             ttk.Button(btns, text="Import from Mixxx", command=self.import_mixxx).pack(side="left", padx=6)
         self.test_lbl = ttk.Label(srv, style="Muted.TLabel", wraplength=620, justify="left")
         self.test_lbl.grid(row=11, column=1, sticky="w", pady=(6, 0))
+
+        # the built-in server's own settings (shown instead of the host fields)
+        self.builtin_box = ttk.LabelFrame(srv, text=" Host on this PC ", padding=(12, 8))
+        self.builtin_box.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        self.builtin_box.columnconfigure(1, weight=1)
+        ttk.Label(self.builtin_box, text="Reach listeners").grid(row=0, column=0, sticky="nw", padx=(0, 10))
+        modes = ttk.Frame(self.builtin_box)
+        modes.grid(row=0, column=1, sticky="w")
+        for key, label in HOST_MODES.items():
+            ttk.Radiobutton(modes, text=label, value=key, variable=v["host_mode"],
+                            command=self.on_server_change).pack(anchor="w")
+        self._row(self.builtin_box, 1, "Port on this PC", ttk.Entry(self.builtin_box, textvariable=v["local_port"], width=8), sticky="w")
+        self._row(self.builtin_box, 2, "Max listeners", ttk.Entry(self.builtin_box, textvariable=v["max_listeners"], width=8), sticky="w")
+        ttk.Label(self.builtin_box, style="Muted.TLabel", wraplength=600, justify="left", text=(
+            "Easy uses a free Cloudflare link (https://...trycloudflare.com) that works behind any router or VPN; "
+            "it changes each time you go live, so paste the new one into your room radio. Direct gives a fixed "
+            "http://your-ip:port link but needs your router to forward the port (the app asks it to) and doesn't "
+            "work on a VPN.")).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
         cards = ttk.Frame(tab)                    # Station and Audio quality side by side
         cards.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
@@ -473,6 +492,20 @@ class App:
 
     def on_server_change(self):
         stype = self.vars["server_type"].get()
+        builtin = stype == BUILTIN
+        if hasattr(self, "builtin_box"):
+            (self.builtin_box.grid if builtin else self.builtin_box.grid_remove)()
+            for row in range(3, 9):                  # host, port, password, username, mount, stream ID
+                for w in self.srv_frame.grid_slaves(row=row):
+                    (w.grid_remove if builtin else w.grid)()
+            self.test_btn.config(text="Check setup" if builtin else "Test connection")
+        if builtin:
+            for w in (self.user_entry, self.mount_entry, self.sid_entry):
+                w.config(state="disabled")
+            b = self.broadcaster
+            self.room_url.set(b.listen_url if b and b.builtin and b.listen_url else "Your link appears here when you go live")
+            self.port_hint.config(text="No radio host needed: this PC is the server.")
+            return
         ice = stype == "Icecast 2"
         self.user_entry.config(state="normal" if ice else "disabled")
         self.mount_entry.config(state="normal" if ice else "disabled")
@@ -591,6 +624,41 @@ class App:
             self.log(msg)
             if callback:
                 callback(ok, msg)
+            return
+        if cfg["server_type"] == BUILTIN:
+            self.show_test(None, "Checking...")
+
+            def check():
+                import socket as _s
+                from . import tunnel, upnp
+                port, mode = int(cfg["local_port"]), cfg["host_mode"]
+                t = _s.socket()
+                try:
+                    t.bind(("127.0.0.1" if mode == "easy" else "0.0.0.0", port))
+                    free = True
+                except OSError:
+                    free = False
+                finally:
+                    t.close()
+                if not free:
+                    ok, msg = False, f"Port {port} is in use by another program. Pick another port."
+                elif mode == "easy":
+                    try:
+                        tunnel.ensure_cloudflared(lambda m: self.post("log", m))
+                        ok, msg = True, f"Ready: port {port} is free and the free-link tool is installed. Press GO LIVE to get your link."
+                    except Exception as e:
+                        ok, msg = False, f"Couldn't get the free-link tool: {e}"
+                elif mode == "direct":
+                    found = upnp._discover()
+                    ok = bool(found)
+                    msg = (f"Ready: port {port} is free and your router answered, so the app can open the port when you go live."
+                           if found else f"Port {port} is free, but no router answered (UPnP is off, or you're on a VPN). "
+                                         f"Forward TCP {port} to {upnp.local_ip()} by hand, or use Easy.")
+                else:
+                    ok, msg = True, f"Ready: listeners on your network can use http://{upnp.local_ip()}:{port}/"
+                self.post("log", msg)
+                self.post("call", lambda: (self.show_test(ok, msg), callback and callback(ok, msg)))
+            self.in_background(check)
             return
         self.show_test(None, f"Testing {cfg['host']}:{cfg['port']}...")
         self.test_btn.state(["disabled"]) if getattr(self, "test_btn", None) else None
@@ -731,7 +799,7 @@ class App:
         except ValueError as e:
             messagebox.showerror(APP_NAME, str(e))
             return
-        if not cfg["host"] or not cfg["password"]:
+        if cfg["server_type"] != BUILTIN and (not cfg["host"] or not cfg["password"]):
             messagebox.showwarning(APP_NAME, "Enter your server's host and source password first "
                                              "(Server tab, or File > Setup wizard).")
             self.nb.select(1)
@@ -789,6 +857,10 @@ class App:
         title = (title if title is not None else self.np_var.get()).strip()
         b = self.broadcaster
         if not title or not (b and b.live):
+            return
+        if b.builtin:
+            b.set_title(title)
+            self.log(f"Stream title set: {title}")
             return
         cfg = b.cfg
         self.in_background(lambda: self.post("log", update_metadata(cfg, title)))
@@ -898,6 +970,10 @@ class App:
                 elif kind == "connected":
                     if self.np_var.get():
                         self.push_metadata()
+                elif kind == "listen_url":
+                    self.room_url.set(payload or "Getting your link...")
+                elif kind == "listeners":
+                    self.listener_count = payload
                 elif kind == "fatal":
                     self.log(payload)
                     self.stop("Broadcast stopped.")
@@ -948,8 +1024,9 @@ class App:
             self.kbps = (b.bytes_sent - last_b) * 8 / 1000 / (now - last_t)
             self.last_bytes = (b.bytes_sent, now)
         up = int(now - b.connected_since)
+        who = f"   {getattr(self, 'listener_count', 0)} listening" if b.builtin else ""
         self.stats_lbl.config(text=f"On air {up // 3600:d}:{up // 60 % 60:02d}:{up % 60:02d}   "
-                                   f"Sent {b.bytes_sent / 1e6:.1f} MB   {self.kbps:.0f} kbps")
+                                   f"Sent {b.bytes_sent / 1e6:.1f} MB   {self.kbps:.0f} kbps{who}")
 
 
 def icon_path():

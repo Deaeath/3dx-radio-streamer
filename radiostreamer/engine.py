@@ -29,7 +29,9 @@ with warnings.catch_warnings():          # audioop is deprecated but still the f
         audioop = None
 import array
 
-from . import capture, media, nowplaying, tools
+from . import capture, media, nowplaying, tools, upnp
+from .localserver import LocalServer
+from .tunnel import QuickTunnel
 from .config import CACHE_DIR
 from .protocol import StreamError, open_source_connection
 
@@ -357,6 +359,11 @@ class Broadcaster:
         self.next_src = None
         self.next_lock = threading.Lock()
         self.current_title = ""
+        self.builtin = cfg.get("server_type") == "Built-in (this PC)"
+        self.local = None
+        self.tunnel = None
+        self.mapping = None
+        self.listen_url = None
         self.mic_on = bool(cfg.get("mic_on"))
         self.mic_src = None
         self.mic_buffering = True
@@ -372,7 +379,9 @@ class Broadcaster:
             self.playlist.reset()
             shutil.rmtree(CACHE_DIR, ignore_errors=True)
         self._start_encoder()
-        for target in (self._connection_loop, self._mixer):
+        if self.builtin:
+            self._start_local()
+        for target in ((self._mixer,) if self.builtin else (self._connection_loop, self._mixer)):
             threading.Thread(target=self._guard, args=(target,), daemon=True).start()
         if self.cfg["source"] == "queue":
             threading.Thread(target=self._guard, args=(self._prefetcher,), daemon=True).start()
@@ -382,6 +391,12 @@ class Broadcaster:
     def stop(self):
         self.stop_event.set()
         self._drop_socket(None)
+        if self.tunnel:
+            self.tunnel.stop()
+        if self.local:
+            self.local.stop()
+        if self.mapping:
+            threading.Thread(target=self.mapping.close, daemon=True).start()
         enc = self.encoder
         if enc and enc.poll() is None:
             try:
@@ -401,7 +416,77 @@ class Broadcaster:
 
     @property
     def live(self):
-        return self.sock is not None
+        return self.sock is not None or (self.local is not None and self.local.running)
+
+    def set_title(self, title):
+        if self.local:
+            self.local.set_title(title)
+
+    # -- built-in server -------------------------------------------------------- #
+    def _start_local(self):
+        mode = self.cfg.get("host_mode", "easy")
+        port = int(self.cfg.get("local_port", 8000))
+        # Easy mode only needs the tunnel to reach it, so stay on 127.0.0.1 (no firewall prompt)
+        self.local = LocalServer(port, "127.0.0.1" if mode == "easy" else "0.0.0.0", name=self.cfg["name"],
+                                 genre=self.cfg["genre"], url=self.cfg["url"], bitrate=self.cfg["bitrate"],
+                                 max_listeners=self.cfg.get("max_listeners", 50), log=lambda m: self.emit("log", m))
+        try:
+            self.local.start()
+        except OSError as e:
+            raise StreamError(str(e)) from e
+        self.connected_since = time.time()
+        self.ever_connected.set()
+        self.emit("log", f"Built-in server running on port {port}")
+        self.emit("connected", None)
+        threading.Thread(target=self._guard, args=(self._listener_watch,), daemon=True).start()
+        lan = f"http://{upnp.local_ip()}:{port}/"
+        if mode == "easy":
+            self._set_link(None, "Getting your public link...")
+            self.tunnel = QuickTunnel(port, lambda u: self._set_link(f"{u}/stream.mp3" if u else None,
+                                                                      None if u else "Link lost - reconnecting..."),
+                                      log=lambda m: self.emit("log", m))
+            self.tunnel.start()
+        elif mode == "direct":
+            self._set_link(None, "Opening the port on your router...")
+            threading.Thread(target=self._guard, args=(lambda: self._open_router(port, lan),), daemon=True).start()
+        else:
+            self._set_link(lan, None)
+
+    def _open_router(self, port, lan):
+        self.mapping = upnp.PortMapping(port)
+        try:
+            ext = self.mapping.open()
+        except upnp.UPnPError as e:
+            self.mapping = None
+            self.emit("log", f"Couldn't open port {port} on your router: {e}. Forward TCP port {port} to "
+                             f"{upnp.local_ip()} by hand, or use Easy mode.")
+            ext = None
+        pub = upnp.public_ip()
+        if ext and upnp.is_private(ext):
+            self.emit("log", f"Your router's own address ({ext}) is private, so your internet provider shares one "
+                             "address between customers (CGNAT). People outside can't reach you directly - use Easy mode.")
+        ip = pub or ext
+        self._set_link(f"http://{ip}:{port}/" if ip else lan, None)
+        if ip:
+            self.emit("log", f"Listeners on your home network can also use {lan}")
+
+    def _set_link(self, url, waiting):
+        self.listen_url = url
+        self.emit("listen_url", url or "")
+        if url:
+            self.emit("log", f"Your listen link: {url}")
+            self.emit("status", ("live", "LIVE - hosting on this PC"))
+        elif waiting:
+            self.emit("status", ("connecting", waiting))
+
+    def _listener_watch(self):
+        last = -1
+        while not self.stop_event.is_set():
+            n = self.local.count if self.local else 0
+            if n != last:
+                last = n
+                self.emit("listeners", n)
+            self.stop_event.wait(2)
 
     def _guard(self, fn):
         try:
@@ -493,6 +578,10 @@ class Broadcaster:
             self.emit("status", ("error", "Connection lost - reconnecting..."))
 
     def _send(self, data):
+        if self.local is not None:
+            self.local.broadcast(data)
+            self.bytes_sent += len(data)
+            return
         with self.sock_lock:
             sock = self.sock
             if sock is None:

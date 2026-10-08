@@ -5,7 +5,7 @@ import webbrowser
 from tkinter import messagebox, ttk
 
 from . import APP_NAME, capture, media, theme
-from .config import BITRATES, PROVIDERS, TITLE_SOURCES, mixxx_profile_exists
+from .config import BUILTIN, HOST_MODES, BITRATES, PROVIDERS, TITLE_SOURCES, mixxx_profile_exists
 from .gui import VB_CABLE_URL
 from .lastfm import CREATE_KEY_URL
 from .protocol import listener_url
@@ -205,9 +205,13 @@ class SetupWizard(tk.Toplevel):
             refresh_fields()
         cb.bind("<<ComboboxSelected>>", lambda e: on_provider(True))
 
-        self.row(f, 3, "Host / IP", ttk.Entry(f, textvariable=self.v["host"]))
-        self.row(f, 4, "Port", ttk.Entry(f, textvariable=self.v["port"], width=8), sticky="w")
-        self.row(f, 5, "Source password", ttk.Entry(f, textvariable=self.v["password"], show="•"))
+        remote = [ttk.Label(f, text="Host / IP"), ttk.Entry(f, textvariable=self.v["host"]),
+                  ttk.Label(f, text="Port"), ttk.Entry(f, textvariable=self.v["port"], width=8),
+                  ttk.Label(f, text="Source password"), ttk.Entry(f, textvariable=self.v["password"], show="•")]
+        local_l = ttk.Label(f, text="Reach listeners")
+        local_box = ttk.Frame(f)
+        for key, label in HOST_MODES.items():
+            ttk.Radiobutton(local_box, text=label, value=key, variable=self.v["host_mode"]).pack(anchor="w")
         user_l = ttk.Label(f, text="Username")
         user_e = ttk.Entry(f, textvariable=self.v["username"])
         mount_l = ttk.Label(f, text="Mount point")
@@ -217,8 +221,15 @@ class SetupWizard(tk.Toplevel):
 
         def refresh_fields():
             stype = self.v["server_type"].get()
-            for w in (user_l, user_e, mount_l, mount_e, sid_l, sid_e):
+            for w in (user_l, user_e, mount_l, mount_e, sid_l, sid_e, local_l, local_box, *remote):
                 w.grid_remove()
+            if stype == BUILTIN:
+                local_l.grid(row=3, column=0, sticky="nw", pady=4)
+                local_box.grid(row=3, column=1, sticky="w", pady=4)
+                return
+            for k in range(3):
+                remote[2 * k].grid(row=3 + k, column=0, sticky="w", pady=4)
+                remote[2 * k + 1].grid(row=3 + k, column=1, sticky="ew" if k != 1 else "w", pady=4)
             if stype == "Icecast 2":
                 user_l.grid(row=6, column=0, sticky="w", pady=4)
                 user_e.grid(row=6, column=1, sticky="ew", pady=4)
@@ -231,10 +242,18 @@ class SetupWizard(tk.Toplevel):
         test = ttk.Frame(self.body)
         test.pack(fill="x", pady=(14, 0))
         self.test_lbl = tk.Label(test, text="", anchor="w", justify="left", wraplength=420, bg=theme.BG)
-        ttk.Button(test, text="Test connection", style="Accent.TButton", command=self._test).pack(side="left")
+        test_btn = ttk.Button(test, text="Test connection", style="Accent.TButton", command=self._test)
+        test_btn.pack(side="left")
         self.test_lbl.pack(side="left", padx=10, fill="x")
-        self.text(self.body, "\nThe test logs in to your server and disconnects right away - nothing goes on "
-                             "air yet.", style="Muted.TLabel")
+        note = self.text(self.body, "", style="Muted.TLabel")
+
+        def refresh_test():
+            builtin = self.v["server_type"].get() == BUILTIN
+            test_btn.config(text="Check setup" if builtin else "Test connection")
+            note.config(text="\nChecks that this PC is ready to host your station. Nothing goes on air yet." if builtin
+                        else "\nThe test logs in to your server and disconnects right away - nothing goes on air yet.")
+        cb.bind("<<ComboboxSelected>>", lambda e: (on_provider(True), refresh_test()), add=False)
+        refresh_test()
         on_provider(False)
 
     def _test(self):
@@ -247,6 +266,8 @@ class SetupWizard(tk.Toplevel):
         self.app.test_connection(callback=done)
 
     def check_server(self):
+        if self.v["server_type"].get() == BUILTIN:
+            return True
         if not self.v["host"].get().strip():
             messagebox.showwarning(APP_NAME, "Enter the server host or IP address.", parent=self)
             return False
@@ -390,6 +411,16 @@ class SetupWizard(tk.Toplevel):
 
     def page_done(self):
         self.header.config(text="All set")
+        if self.v["server_type"].get() == BUILTIN:
+            self.text(self.body, "This PC will host your station. When you press GO LIVE, your listening link appears "
+                                 "on the Broadcast tab under LISTEN - copy it and paste it into your room radio.")
+            if self.v["host_mode"].get() == "easy":
+                self.text(self.body, "With Easy hosting the link is new each time you go live, so paste the new one "
+                                     "into your radio after starting.", style="Muted.TLabel")
+            self.text(self.body, "Press GO LIVE on the Broadcast tab whenever you're ready. You can re-run this "
+                                 "wizard from File > Setup wizard.")
+            ttk.Checkbutton(self.body, text="Go live now", variable=self.go_live).pack(anchor="w", pady=8)
+            return
         url = listener_url({k: self.v[k].get() for k in ("server_type", "host", "port", "mount", "sid")})
         self.text(self.body, "Your station's listening link:")
         row = ttk.Frame(self.body)

@@ -25,7 +25,11 @@ else:
 SETTINGS_FILE = DATA_DIR / "settings.json"
 BIN_DIR = DATA_DIR / "bin"          # user-updatable tools (yt-dlp)
 
-SERVER_TYPES = ["Shoutcast v1", "Shoutcast v2", "Icecast 2"]
+BUILTIN = "Built-in (this PC)"
+SERVER_TYPES = [BUILTIN, "Shoutcast v1", "Shoutcast v2", "Icecast 2"]
+HOST_MODES = {"easy": "Easy - free public link, works anywhere (recommended)",
+              "direct": "Direct - my own IP address (opens the port on my router)",
+              "lan": "Local network only (testing)"}
 BITRATES = [64, 96, 128, 160, 192, 256, 320]
 SAMPLERATES = [44100, 48000]
 
@@ -36,8 +40,8 @@ TITLE_SOURCES = ["Manual", "Music app (auto-detect)", "Spotify app", "Browser (Y
 
 DEFAULTS = {
     # server
-    "provider": "Listen2MyRadio",
-    "server_type": "Shoutcast v1",
+    "provider": "Host it myself (free, no account)",
+    "server_type": BUILTIN,
     "host": "",
     "port": 8000,
     "password": "",
@@ -81,11 +85,21 @@ DEFAULTS = {
     # connection
     "reconnect_delay": 5,
     "max_retries": 0,
+    # built-in server
+    "host_mode": "easy",
+    "local_port": 8000,
+    "max_listeners": 50,
     "wizard_done": False,
 }
 
 # Hints shown by the wizard / server tab. Field defaults are applied when picked.
 PROVIDERS = {
+    "Host it myself (free, no account)": {
+        "fields": {"server_type": BUILTIN},
+        "hint": "The easiest way: no sign-up and nothing to copy. This app hosts the station itself and gives you a "
+                "link to share when you go live. Listeners connect to your PC, so each one uses about 0.13 Mbps "
+                "of your upload at 128 kbps.",
+    },
     "Listen2MyRadio": {
         "fields": {"server_type": "Shoutcast v1"},
         "hint": "Recommended - free. In the control panel under Stream Details, copy Hostname, Port and "

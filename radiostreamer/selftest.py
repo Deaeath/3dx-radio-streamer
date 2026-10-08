@@ -82,7 +82,7 @@ def run(report_path=None):
         tools.run([ff, "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=6",
                    "-metadata", "artist=Self", "-metadata", "title=Test Tone", str(tone)], 30)
         srv = _LocalServer()
-        cfg = dict(config.DEFAULTS, host="127.0.0.1", port=srv.port, password="selftest", source="queue",
+        cfg = dict(config.DEFAULTS, server_type="Shoutcast v1", host="127.0.0.1", port=srv.port, password="selftest", source="queue",
                    loop=False, normalize=True)
         events = []
         pl = Playlist([{"kind": "file", "src": str(tone), "title": "tone"}], loop=False)
@@ -99,6 +99,29 @@ def run(report_path=None):
         check("level meter sees audio", levels and max(levels) > -40, f"max {max(levels or [-120]):.1f} LUFS")
         fatal = [p for k, p in events if k == "fatal"]
         check("no engine errors", not fatal, "; ".join(fatal))
+
+        # built-in server: host on this PC and have a listener connect (local network mode, no internet needed)
+        from .localserver import LocalServer
+        import urllib.request
+        probe = socket.socket(); probe.bind(("127.0.0.1", 0)); port = probe.getsockname()[1]; probe.close()
+        cfg2 = dict(config.DEFAULTS, server_type=config.BUILTIN, host_mode="lan", local_port=port, source="queue", loop=True)
+        events2 = []
+        b2 = Broadcaster(cfg2, Playlist([{"kind": "file", "src": str(tone), "title": "tone"}], loop=True),
+                         lambda k, p=None: events2.append((k, p)))
+        got = 0
+        try:
+            b2.start()
+            time.sleep(2)
+            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/stream.mp3",
+                                                               headers={"User-Agent": "selftest"}), timeout=10) as r:
+                t0 = time.time()
+                while time.time() - t0 < 2:
+                    got += len(r.read(4096))
+        except Exception as e:
+            lines.append(f"[INFO] built-in server error: {e!r}")
+        finally:
+            b2.stop()
+        check("built-in server serves listeners", got > 20000, f"{got} bytes in 2 s")
         try:
             tone.unlink()
             tmp.rmdir()
